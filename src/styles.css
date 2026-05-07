@@ -1,0 +1,158 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Light theme (default) */
+:root {
+  --bg: 255 255 255;
+  --bg-elev: 243 246 249;            /* slightly more separated from bg + panel */
+  --bg-line: 208 215 222;
+  --bg-panel: 252 253 254;           /* cards visibly float above bg */
+  --bg-accent-tint: 9 105 218;
+  --bg-accent-tint-alpha: 0.06;
+  --selected: 9 105 218;             /* base for "selected/active" tokens */
+  --selected-alpha: 0.10;
+  --fg: 31 35 40;
+  --fg-muted: 87 96 106;
+  --fg-dim: 140 149 159;
+  --accent: 9 105 218;
+  --accent-on: 255 255 255;
+
+  --diff-add: 218 251 225;
+  --diff-add-gutter: 172 238 187;
+  --diff-del: 255 235 233;
+  --diff-del-gutter: 255 206 203;
+  --hunk-bg: 221 244 255;
+  --hunk-fg: 9 105 218;              /* matches accent for clarity */
+  --hover: 234 238 242;
+
+  --shadow-toolbar: 0 1px 3px rgb(0 0 0 / 0.05);
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.08);
+}
+
+/* Dark theme — applied when <html class="dark"> */
+.dark {
+  --bg: 13 17 23;
+  --bg-elev: 22 27 34;
+  --bg-line: 33 38 45;
+  --bg-panel: 28 33 41;
+  --bg-accent-tint: 88 166 255;
+  --bg-accent-tint-alpha: 0.08;
+  --selected: 88 166 255;
+  --selected-alpha: 0.14;
+  --fg: 230 237 243;
+  --fg-muted: 173 181 189;
+  --fg-dim: 125 133 144;
+  --accent: 88 166 255;
+  --accent-on: 13 17 23;
+
+  --diff-add: 15 47 29;
+  --diff-add-gutter: 19 57 38;
+  --diff-del: 58 18 23;
+  --diff-del-gutter: 73 26 31;
+  --hunk-bg: 30 41 73;               /* tinted blue, no longer gray-on-gray */
+  --hunk-fg: 147 197 253;
+  --hover: 33 38 45;
+
+  --shadow-toolbar: 0 1px 0 rgb(0 0 0 / 0.4);
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.4);
+}
+
+/* Selection / active-row helper — distinct from --bg-line (which is for borders/chrome) */
+.is-selected {
+  background: rgb(var(--selected) / var(--selected-alpha));
+}
+
+/* Section markers — each major surface gets a distinct identity, but kept understated. */
+.stage-toolbar {
+  background: rgb(var(--bg-elev));
+  box-shadow: var(--shadow-toolbar);
+}
+.stage-picker {
+  background: rgb(var(--bg));
+}
+.stage-picker-bar {
+  background: rgb(var(--bg-elev));
+}
+.stage-sidebar {
+  background: rgb(var(--bg-elev));
+}
+.stage-diff {
+  background: rgb(var(--bg));
+}
+.stage-file-header {
+  background: rgb(var(--bg-elev));
+  box-shadow: var(--shadow-card);
+}
+.stage-card {
+  background: rgb(var(--bg-panel));
+  box-shadow: var(--shadow-card);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+}
+
+/* Diff line tweaks */
+.diff-line {
+  display: grid;
+  grid-template-columns: 36px 36px 1fr;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+@media (min-width: 768px) {
+  .diff-line {
+    grid-template-columns: 48px 48px 1fr;
+  }
+}
+.diff-line .gutter {
+  text-align: right;
+  padding: 0 6px;
+  color: rgb(var(--fg-dim));
+  user-select: none;
+  border-right: 1px solid rgb(var(--bg-line));
+}
+@media (min-width: 768px) {
+  .diff-line .gutter {
+    padding: 0 8px;
+  }
+}
+.diff-line .content {
+  padding: 0 12px;
+  white-space: pre;
+  overflow-x: auto;
+  color: rgb(var(--fg));
+}
+.diff-line.add { background: rgb(var(--diff-add)); }
+.diff-line.add .gutter { background: rgb(var(--diff-add-gutter)); }
+.diff-line.del { background: rgb(var(--diff-del)); }
+.diff-line.del .gutter { background: rgb(var(--diff-del-gutter)); }
+.diff-line.context { background: transparent; }
+
+.diff-line.selectable:hover { outline: 1px solid rgb(var(--bg-line)); cursor: pointer; }
+.diff-line.has-comment { box-shadow: inset 4px 0 0 rgb(var(--accent)); }
+.diff-line.in-range {
+  background: rgb(var(--accent) / 0.18);
+  box-shadow: inset 4px 0 0 rgb(var(--accent));
+}
+.diff-line.in-range .gutter {
+  background: rgb(var(--accent) / 0.25);
+  color: rgb(var(--fg));
+}
+
+.hunk-header {
+  background: rgb(var(--hunk-bg));
+  color: rgb(var(--hunk-fg));
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-top: 1px solid rgb(var(--bg-line));
+  border-bottom: 1px solid rgb(var(--bg-line));
+}

@@ -1,0 +1,143 @@
+# iReview
+
+Browser-based local diff review for AI-generated changes.
+
+Point it at a git repository, pick any combination of recent commits + uncommitted work, review the resulting diff like a GitHub pull request, leave typed comments (issue / suggestion / note / praise), and click **Copy review** to put a structured Markdown summary on your clipboard — ready to paste back to your coding agent.
+
+## What it looks like
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│ 🔍 iReview  my-project  ⎇ feature/login  @8a3f1c9e                     │
+│   Reviewing  [3 commits] [unstaged]   ⊕ Pick changes  ▤ Single ≡ Scroll│
+├──────────────┬─────────────────────────────────────────────────────────┤
+│ Files (4)    │ src/auth.ts                            modified         │
+│ ▾ src        │ @@ -10,7 +10,8 @@ function check()                      │
+│   ☐ M auth.ts│  10  10   const user = await getUser(id)                 │
+│   ☑ M db.ts  │  11  11   if (!user) {                                   │
+│   ☐ A foo.ts │  -   12 +   throw new Error("nope")                      │
+│ ▾ test       │  ┌───────────────────────────────────────────────┐      │
+│   ☐ A x.test │  │ [SUGGESTION] add a more specific message      │      │
+│              │  └───────────────────────────────────────────────┘      │
+└──────────────┴─────────────────────────────────────────────────────────┘
+```
+
+## Install + run
+
+### Option A — single binary (recommended)
+
+Download the binary for your OS from the [Releases](https://github.com/suhothayan/iReview/releases) page and run it on any git repository:
+
+```bash
+./ireview /path/to/your/repo
+```
+
+Or, from inside any subdirectory of a repo:
+
+```bash
+cd /your/repo/some/subdir
+ireview
+```
+
+It walks up looking for `.git`, picks a free port, and opens your browser automatically.
+
+**Requires:** `git` installed on your system.
+
+### Option B — from source
+
+```bash
+git clone https://github.com/suhothayan/iReview
+cd iReview
+npm install
+IREVIEW_REPO=/path/to/your/repo npm run dev
+```
+
+Vite dev server on `:5173`, Express API on `:3737`.
+
+## Features
+
+- **Pick any selection.** Recent commits + uncommitted (staged / unstaged) all in one picker — combined into a single diff. Reviewed/total counter on the picker tells you what's currently selected.
+- **GitHub-style diff viewer.** Unified diff with hunk headers, file tree sidebar, sticky per-file headers, comment count badges.
+- **Click to comment.** Click a line to leave a typed comment (issue / suggestion / note / praise). **Shift-click** another line on the same side to extend a multi-line range. File-level and review-level comments too.
+- **Mark files reviewed.** Per-file checkbox, plus tri-state cascading checkboxes on directories — tick a folder to mark every file inside as reviewed.
+- **Two view modes.** **Single** (one file at a time, with Prev / Next nav) or **Scroll all** (continuous scroll, sidebar highlight follows scroll position).
+- **Copy review.** Numbered, structured Markdown lands on your clipboard with one click. Paste into your AI agent's chat to apply fixes.
+- **Light + dark theme.** CSS variables, theme toggle, honours `prefers-color-scheme` on first load, persists choice.
+- **Mobile / tablet friendly.** Toolbar wraps; sidebar becomes a drawer below `md`; nav labels collapse to icons.
+- **Per-repo session persistence.** Comments and reviewed flags survive page reloads, keyed by repo path.
+
+## Command-line options
+
+```
+ireview [REPO_PATH] [--port N] [--no-open]
+
+Arguments:
+  REPO_PATH       Path to a git repository (default: walks up from cwd)
+
+Options:
+  -p, --port N    Port to listen on (default: 3737)
+      --no-open   Don't auto-open the browser
+  -v, --version   Show version
+  -h, --help      Show this help
+```
+
+## Output format
+
+The exported review is structured Markdown optimized for pasting into AI agent chats:
+
+```markdown
+I reviewed your code and have the following comments. Please address them.
+
+Comment types: SUGGESTION (improvements), ISSUE (problems to fix)
+
+1. **[SUGGESTION]** `src/auth.ts:12` - add a more specific error message
+2. **[ISSUE]** `src/db.ts:42-50` - this transaction can deadlock under contention
+3. **[NOTE]** `src/auth.ts` - consider extracting this into a dedicated module
+```
+
+- Numbered for easy reference
+- File-level comments show as `` `path` ``, line as `` `path:N` ``, range as `` `path:N-M` ``
+- Legend only includes types you actually used
+- Comments sorted by file (review-level first), then by line
+
+## Building binaries yourself
+
+```bash
+# Your platform (auto-detects current OS/arch)
+npm run build:binary
+
+# Specific targets
+npm run build:binary:macos-arm64
+npm run build:binary:macos-x64
+npm run build:binary:linux-x64
+npm run build:binary:windows-x64
+
+# All four at once
+npm run build:binary:all
+```
+
+Binaries are ~60 MB each — they bundle Bun's JS runtime + the built React frontend (embedded as base64) + the Express server. The only runtime dependency is `git`.
+
+## Architecture
+
+- `server/index.js` — Express + cors. Shells out to `git` via `execFile` (no shell injection surface). Endpoints: `/api/repo`, `/api/diff` (Selection-based), `/api/commits`. Falls back to embedded assets when run as a compiled binary.
+- `src/lib/parseDiff.ts` — git unified diff → structured `DiffFile[]`. Tested against fixture diffs (modify / add / delete / rename / multi-hunk / no-newline-at-EOF).
+- `src/lib/store.ts` — Zustand store. Comments + reviewed flags persisted per repo via explicit `loadSession` / `saveSession`.
+- `src/lib/exportMarkdown.ts` — comments → clipboard Markdown.
+- `src/components/` — `Toolbar`, `FileList` (tree), `DiffView`, `CommentForm`, `CommitPicker`, `Logo`.
+- `scripts/embed-assets.js` — reads `dist/` after `vite build` and bakes it into `server/embedded-assets.js` for the binary.
+
+## Project scripts
+
+```bash
+npm run dev               # Vite + Express, hot reload
+npm run build             # build the React app to dist/
+npm run start             # serve the built app from Express
+npm run typecheck         # tsc --noEmit
+npm run test              # vitest run
+npm run build:binary      # build the standalone executable
+```
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
