@@ -146,7 +146,7 @@ app.get("/api/diff", async (req, res) => {
           return res.status(400).json({ error: "no valid commits found" });
         oldest = sorted[0];
         newest = sorted[sorted.length - 1];
-        base = `${oldest}^`;
+        base = await resolveParent(oldest);
       }
 
       if (includeUnstaged) {
@@ -165,6 +165,20 @@ app.get("/api/diff", async (req, res) => {
     res.status(500).json({ error: String(err.message || err) });
   }
 });
+
+// Returns "<sha>^" when the commit has a parent, otherwise the canonical
+// empty-tree SHA-1. Diff'ing a root commit against the empty tree shows
+// everything in that commit as "added" — which is what users expect when
+// they pick the very first commit in a repo.
+const EMPTY_TREE_SHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
+async function resolveParent(sha) {
+  try {
+    await git(["rev-parse", "--verify", `${sha}^`]);
+    return `${sha}^`;
+  } catch {
+    return EMPTY_TREE_SHA;
+  }
+}
 
 async function sortShasByHistory(shas) {
   const out = await git(["log", "--format=%H", "-n", "5000"]);

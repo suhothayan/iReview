@@ -72,7 +72,10 @@ export function Toolbar({
               {repoName}
             </span>
             {repoBranch && (
-              <span className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-bg-line text-fg font-mono whitespace-nowrap max-w-[14rem] truncate">
+              <span
+                className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-bg-line text-fg font-mono whitespace-nowrap max-w-[14rem] truncate"
+                title={`Currently checked-out branch: ${repoBranch}`}
+              >
                 ⎇ {repoBranch}
               </span>
             )}

@@ -68,6 +68,7 @@ export function CommentForm({ initial, onSave, onCancel, scopeLabel }: Props) {
         <button
           onClick={onCancel}
           className="text-xs px-3 py-1 rounded text-fg-muted hover:text-fg"
+          title="Discard this comment (Esc)"
         >
           Cancel
         </button>
@@ -75,6 +76,7 @@ export function CommentForm({ initial, onSave, onCancel, scopeLabel }: Props) {
           disabled={!body.trim()}
           onClick={() => onSave(body.trim(), type)}
           className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium disabled:opacity-50"
+          title="Save this comment (⌘/Ctrl+Enter)"
         >
           Save
         </button>
@@ -100,12 +102,17 @@ export function CommentBubble({
           [{t.label.toUpperCase()}]
         </span>
         <div className="flex-1" />
-        <button onClick={onEdit} className="text-fg-muted hover:text-fg">
+        <button
+          onClick={onEdit}
+          className="text-fg-muted hover:text-fg"
+          title="Edit this comment"
+        >
           edit
         </button>
         <button
           onClick={onDelete}
           className="text-fg-muted hover:text-red-500"
+          title="Delete this comment"
         >
           delete
         </button>

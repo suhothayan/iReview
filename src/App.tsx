@@ -209,6 +209,7 @@ export default function App() {
             onClick={() => setToast(null)}
             className="text-xs px-2 py-0.5 rounded hover:bg-green-200 dark:hover:bg-green-900/60"
             aria-label="Dismiss"
+            title="Dismiss this notification"
           >
             ✕
           </button>

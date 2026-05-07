@@ -88,7 +88,10 @@ export function DiffView({ file, embedded = false }: Props) {
           <span className="sm:hidden">+</span>
           <span className="hidden sm:inline">+ File comment</span>
         </button>
-        <label className="flex items-center gap-1 text-xs text-fg whitespace-nowrap">
+        <label
+          className="flex items-center gap-1 text-xs text-fg whitespace-nowrap cursor-pointer"
+          title="Mark this file as reviewed (struck through in the file list)"
+        >
           <input
             type="checkbox"
             checked={isReviewed}
