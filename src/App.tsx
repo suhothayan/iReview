@@ -34,6 +34,7 @@ export default function App() {
   const programmaticScrollUntilRef = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
   const [noRepo, setNoRepo] = useState<NoRepoInfo | null>(null);
+  const [quitted, setQuitted] = useState(false);
   const [meta, setMeta] = useState<{ branch: string | null; head: string | null }>({
     branch: null,
     head: null,
@@ -180,6 +181,9 @@ export default function App() {
     [setActiveFile, viewMode],
   );
 
+  if (quitted) {
+    return <StoppedScreen />;
+  }
   if (noRepo) {
     return <WelcomeScreen info={noRepo} />;
   }
@@ -195,6 +199,7 @@ export default function App() {
             `${count} comment${count === 1 ? "" : "s"} copied to clipboard — paste into your agent's chat to apply.`,
           )
         }
+        onQuit={() => setQuitted(true)}
       />
       {toast && (
         <div className="px-4 py-2 bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 border-b border-green-300 dark:border-green-800 text-sm flex items-center gap-3">
@@ -361,6 +366,28 @@ function ResponsiveFileList({ goToFile }: { goToFile: (p: string) => void }) {
         </div>
       )}
     </>
+  );
+}
+
+function StoppedScreen() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg p-6">
+      <div className="stage-card max-w-md w-full rounded-lg border border-bg-line p-8 text-center">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Logo className="w-7 h-7" />
+          <div className="text-accent font-semibold text-lg">iReview</div>
+        </div>
+        <h1 className="text-fg text-xl font-medium mb-2">Stopped</h1>
+        <p className="text-fg-muted text-sm">
+          The iReview server has been shut down. You can safely close this tab.
+        </p>
+        <p className="text-fg-dim text-xs mt-4">
+          Your comments and reviewed flags are saved per-repo and will be
+          restored next time you launch <code>ireview</code> on the same
+          repository.
+        </p>
+      </div>
+    </div>
   );
 }
 
