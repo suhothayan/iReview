@@ -1,0 +1,43 @@
+{
+  "name": "ireview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based local diff review for AI-generated changes",
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "node server/index.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "NODE_ENV=production node server/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "embed-assets": "node scripts/embed-assets.js",
+    "build:binary": "npm run build && npm run embed-assets && $(command -v bun || echo $HOME/.bun/bin/bun) build server/index.js --compile --outfile=ireview",
+    "build:binary:macos-arm64": "npm run build && npm run embed-assets && $(command -v bun || echo $HOME/.bun/bin/bun) build server/index.js --compile --target=bun-darwin-arm64 --outfile=ireview-macos-arm64",
+    "build:binary:macos-x64": "npm run build && npm run embed-assets && $(command -v bun || echo $HOME/.bun/bin/bun) build server/index.js --compile --target=bun-darwin-x64 --outfile=ireview-macos-x64",
+    "build:binary:linux-x64": "npm run build && npm run embed-assets && $(command -v bun || echo $HOME/.bun/bin/bun) build server/index.js --compile --target=bun-linux-x64 --outfile=ireview-linux-x64",
+    "build:binary:windows-x64": "npm run build && npm run embed-assets && $(command -v bun || echo $HOME/.bun/bin/bun) build server/index.js --compile --target=bun-windows-x64 --outfile=ireview-windows-x64.exe",
+    "build:binary:all": "npm run build:binary:macos-arm64 && npm run build:binary:macos-x64 && npm run build:binary:linux-x64 && npm run build:binary:windows-x64"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.9",
+    "zustand": "^5.0.2"
+  }
+}
