@@ -168,6 +168,100 @@ index 111..222 100644
     expect(parseDiff("\n")).toEqual([]);
   });
 
+  it("parses a 100%-similarity rename with no ---/+++ lines", () => {
+    const diff = `diff --git a/old.txt b/new.txt
+similarity index 100%
+rename from old.txt
+rename to new.txt
+`;
+    const files = parseDiff(diff);
+    expect(files).toHaveLength(1);
+    expect(files[0].status).toBe("renamed");
+    expect(files[0].oldPath).toBe("old.txt");
+    expect(files[0].newPath).toBe("new.txt");
+    expect(files[0].path).toBe("new.txt");
+    expect(files[0].hunks).toEqual([]);
+  });
+
+  it("parses a binary-file diff", () => {
+    const diff = `diff --git a/logo.png b/logo.png
+index abc..def 100644
+Binary files a/logo.png and b/logo.png differ
+`;
+    const files = parseDiff(diff);
+    expect(files).toHaveLength(1);
+    expect(files[0].path).toBe("logo.png");
+    expect(files[0].oldPath).toBe("logo.png");
+    expect(files[0].newPath).toBe("logo.png");
+    expect(files[0].binary).toBe(true);
+    expect(files[0].hunks).toEqual([]);
+  });
+
+  it("parses a binary file addition", () => {
+    const diff = `diff --git a/new.bin b/new.bin
+new file mode 100644
+index 0000000..abc
+Binary files /dev/null and b/new.bin differ
+`;
+    const files = parseDiff(diff);
+    expect(files[0].status).toBe("added");
+    expect(files[0].binary).toBe(true);
+    expect(files[0].path).toBe("new.bin");
+  });
+
+  it("parses a mode-only change (no content)", () => {
+    const diff = `diff --git a/script.sh b/script.sh
+old mode 100644
+new mode 100755
+`;
+    const files = parseDiff(diff);
+    expect(files).toHaveLength(1);
+    expect(files[0].status).toBe("mode-changed");
+    expect(files[0].path).toBe("script.sh");
+    expect(files[0].hunks).toEqual([]);
+  });
+
+  it("handles paths containing 'b/' as a substring", () => {
+    const diff = `diff --git a/sub/b/foo b/sub/b/foo
+index 111..222 100644
+--- a/sub/b/foo
++++ b/sub/b/foo
+@@ -1 +1 @@
+-old
++new
+`;
+    const files = parseDiff(diff);
+    expect(files).toHaveLength(1);
+    expect(files[0].path).toBe("sub/b/foo");
+  });
+
+  it("falls back to header path extraction when ---/+++ are absent", () => {
+    const diff = `diff --git a/path/with/many/segments.ts b/path/with/many/segments.ts
+old mode 100644
+new mode 100755
+`;
+    const files = parseDiff(diff);
+    expect(files[0].path).toBe("path/with/many/segments.ts");
+  });
+
+  it("ignores '\\ No newline' marker even without trailing space", () => {
+    const diff = `diff --git a/eof.ts b/eof.ts
+index 111..222 100644
+--- a/eof.ts
++++ b/eof.ts
+@@ -1,1 +1,1 @@
+-old
+\\ No newline at end of file
++new
+\\No newline at end of file
+`;
+    const files = parseDiff(diff);
+    const lines = files[0].hunks[0].lines;
+    expect(lines.map((l) => l.kind)).toEqual(["del", "add"]);
+    expect(lines[0].text).toBe("old");
+    expect(lines[1].text).toBe("new");
+  });
+
   it("assigns correct line numbers across context/add/del", () => {
     const diff = `diff --git a/numbers.ts b/numbers.ts
 index 111..222 100644

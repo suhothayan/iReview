@@ -9,7 +9,6 @@ export interface Selection {
 
 export type ViewMode = "single" | "scroll";
 
-// Subset of state that is persisted per repo.
 interface PersistedSlice {
   comments: Comment[];
   reviewed: Record<string, boolean>;
@@ -18,6 +17,11 @@ interface PersistedSlice {
 interface State {
   // session
   repoPath: string;
+  // The repo for which `comments` and `reviewed` were last hydrated. Persisting
+  // is gated on this matching `repoPath` so we never accidentally write the
+  // current state under an old repo's key when switching repos, and never
+  // write a default slice over a real persisted slice during boot.
+  hydratedRepo: string;
   selection: Selection;
   hasStaged: boolean;
   hasUnstaged: boolean;
@@ -51,6 +55,7 @@ interface State {
   setSidebarOpen: (v: boolean) => void;
 
   // Hydrate persisted slice for the given repo. Called once after fetchRepo.
+  // After this returns, subsequent state changes get auto-persisted.
   hydrateSession: (repo: string) => void;
 
   addComment: (c: Omit<Comment, "id" | "createdAt">) => void;
@@ -83,17 +88,31 @@ function loadSession(repo: string): PersistedSlice | null {
   }
 }
 
-function saveSession(repo: string, slice: PersistedSlice): void {
+let lastSaveErrorReported = false;
+function saveSession(
+  repo: string,
+  slice: PersistedSlice,
+  reportError: (msg: string) => void,
+): void {
   try {
     localStorage.setItem(sessionKey(repo), JSON.stringify(slice));
-  } catch {
-    /* quota / private mode — silently drop */
+  } catch (err) {
+    if (!lastSaveErrorReported) {
+      lastSaveErrorReported = true;
+      const reason =
+        err instanceof Error ? err.message : "localStorage write failed";
+      reportError(
+        `Could not save your review session (${reason}). Comments may not persist between reloads.`,
+      );
+    }
   }
 }
 
 export const useStore = create<State>()((set, get) => ({
   repoPath: "",
-  selection: { shas: [], staged: true, unstaged: true },
+  hydratedRepo: "",
+  // Empty until App boot fills in real defaults from /api/repo.
+  selection: { shas: [], staged: false, unstaged: false },
   hasStaged: false,
   hasUnstaged: false,
   files: [],
@@ -123,12 +142,11 @@ export const useStore = create<State>()((set, get) => ({
 
   hydrateSession: (repo) => {
     const slice = loadSession(repo);
-    if (slice) {
-      set({ comments: slice.comments, reviewed: slice.reviewed });
-    } else {
-      // Ensure clean slate if nothing exists for this repo.
-      set({ comments: [], reviewed: {} });
-    }
+    set({
+      comments: slice?.comments ?? [],
+      reviewed: slice?.reviewed ?? {},
+      hydratedRepo: repo,
+    });
   },
 
   addComment: (c) =>
@@ -168,20 +186,32 @@ export const useStore = create<State>()((set, get) => ({
     }),
 }));
 
-// Persist comments + reviewed to the per-repo key whenever they change.
-// Wired here (instead of via persist middleware) so we can guarantee the repo
-// key is known *before* any read happens.
-let lastPersistedRepo = "";
+// Persist comments + reviewed to the per-repo key — only after hydration has
+// completed for the same repo. This guarantees we never write a default slice
+// over a real persisted slice during boot, and never cross-contaminate between
+// repos when switching.
+let lastSaved: { repo: string; comments: Comment[]; reviewed: Record<string, boolean> } | null = null;
 useStore.subscribe((state) => {
-  if (!state.repoPath) return;
-  if (state.repoPath !== lastPersistedRepo) {
-    lastPersistedRepo = state.repoPath;
-    return; // first sub fires right after hydrate; don't overwrite
+  if (!state.repoPath || state.hydratedRepo !== state.repoPath) return;
+  // Skip writes when nothing relevant changed.
+  if (
+    lastSaved &&
+    lastSaved.repo === state.repoPath &&
+    lastSaved.comments === state.comments &&
+    lastSaved.reviewed === state.reviewed
+  ) {
+    return;
   }
-  saveSession(state.repoPath, {
+  saveSession(
+    state.repoPath,
+    { comments: state.comments, reviewed: state.reviewed },
+    (msg) => useStore.getState().setError(msg),
+  );
+  lastSaved = {
+    repo: state.repoPath,
     comments: state.comments,
     reviewed: state.reviewed,
-  });
+  };
 });
 
 function cryptoRandomId(): string {
