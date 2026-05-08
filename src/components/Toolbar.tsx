@@ -1,5 +1,6 @@
 import { useStore } from "../lib/store";
 import { exportReview } from "../lib/exportMarkdown";
+import { shutdownServer } from "../lib/api";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 
@@ -8,9 +9,16 @@ interface Props {
   repoHead: string | null;
   onReload: () => void;
   onCopied?: (commentCount: number) => void;
+  onQuit?: () => void;
 }
 
-export function Toolbar({ repoBranch, repoHead, onReload, onCopied }: Props) {
+export function Toolbar({
+  repoBranch,
+  repoHead,
+  onReload,
+  onCopied,
+  onQuit,
+}: Props) {
   const {
     comments,
     clearAll,
@@ -80,7 +88,10 @@ export function Toolbar({ repoBranch, repoHead, onReload, onCopied }: Props) {
         )}
       </div>
 
-      <div className="flex-1" />
+      {/* Right cluster: stays right-anchored. When the toolbar wraps, this whole
+          group flows to its own row(s) but `ml-auto` + `justify-end` keep it
+          pinned to the right edge instead of left-aligning by default. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-2 ml-auto justify-end">
 
       {/* Group: status — chips showing what's currently selected. Hidden while
           the picker is open since the picker itself shows the live draft. Also
@@ -175,6 +186,27 @@ export function Toolbar({ repoBranch, repoHead, onReload, onCopied }: Props) {
         danger
         className="hidden sm:inline-flex"
       />
+      <IconButton
+        icon="⏻"
+        title="Stop iReview server (close the app)"
+        onClick={async () => {
+          if (
+            !confirm(
+              "Stop iReview? You'll lose this session — but your comments and reviewed flags are saved per-repo and will come back next time.",
+            )
+          )
+            return;
+          try {
+            await shutdownServer();
+          } catch {
+            // The server may exit before the response makes it back — that's
+            // expected. Either way, signal "quit" to the app.
+          }
+          onQuit?.();
+        }}
+        danger
+      />
+      </div>
     </header>
   );
 }

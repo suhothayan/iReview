@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchCommits, type CommitInfo } from "../lib/api";
+import { fetchCommits, fetchRepo, type CommitInfo } from "../lib/api";
 import { useStore } from "../lib/store";
 
 type Row =
@@ -14,10 +14,13 @@ export function CommitPicker() {
     hasStaged,
     hasUnstaged,
     setShowCommitPicker,
+    setRepo,
+    repoPath,
   } = useStore();
 
   const [commits, setCommits] = useState<CommitInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Local draft so the user can adjust without triggering a diff fetch on every click.
   const [draft, setDraft] = useState(selection);
@@ -25,6 +28,27 @@ export function CommitPicker() {
   useEffect(() => {
     setDraft(selection);
   }, [selection]);
+
+  // Re-pull commits + repo info from the server. Updates uncommitted state
+  // (hasStaged / hasUnstaged) and the commit list, so changes made on disk
+  // since the picker mounted (new commits, fresh git add, etc.) show up.
+  async function refresh() {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const [info, fresh] = await Promise.all([fetchRepo(), fetchCommits(50)]);
+      setRepo({
+        repoPath: info.repo,
+        hasStaged: info.hasStaged,
+        hasUnstaged: info.hasUnstaged,
+      });
+      setCommits(fresh);
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +93,13 @@ export function CommitPicker() {
     draft.shas.length + (draft.staged ? 1 : 0) + (draft.unstaged ? 1 : 0);
 
   const actions = (
-    <Actions dirty={dirty} onApply={apply} onReset={reset} />
+    <Actions
+      dirty={dirty}
+      refreshing={refreshing}
+      onApply={apply}
+      onReset={reset}
+      onRefresh={refresh}
+    />
   );
 
   return (
@@ -168,15 +198,33 @@ export function CommitPicker() {
 
 function Actions({
   dirty,
+  refreshing,
   onApply,
   onReset,
+  onRefresh,
 }: {
   dirty: boolean;
+  refreshing: boolean;
   onApply: () => void;
   onReset: () => void;
+  onRefresh: () => void;
 }) {
   return (
     <>
+      <button
+        onClick={onRefresh}
+        disabled={refreshing}
+        className="text-xs px-2 py-1 rounded border border-bg-line text-fg-muted hover:text-fg hover:bg-bg-elev disabled:opacity-50 inline-flex items-center gap-1"
+        title="Re-pull commits and uncommitted state from disk"
+      >
+        <span
+          aria-hidden
+          className={refreshing ? "inline-block animate-spin" : ""}
+        >
+          ↻
+        </span>
+        <span>{refreshing ? "Refreshing…" : "Refresh"}</span>
+      </button>
       <button
         onClick={onReset}
         disabled={!dirty}

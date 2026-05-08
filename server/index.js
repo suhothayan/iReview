@@ -186,6 +186,15 @@ async function sortShasByHistory(shas) {
   return matchedNewestFirst.reverse();
 }
 
+// Stop the server gracefully. Used by the Quit button in the UI so users
+// without a terminal can shut it down.
+app.post("/api/shutdown", (_req, res) => {
+  res.json({ ok: true, message: "iReview is shutting down" });
+  console.log("Shutdown requested via /api/shutdown — exiting.");
+  // Give the response a moment to flush before exiting.
+  setTimeout(() => process.exit(0), 150);
+});
+
 app.get("/api/commits", async (req, res) => {
   const n = Math.min(Number(req.query.n || 50), 500);
   try {

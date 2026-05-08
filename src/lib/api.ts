@@ -67,3 +67,9 @@ export async function fetchCommits(n = 50): Promise<CommitInfo[]> {
   const j = await r.json();
   return j.commits;
 }
+
+// Asks the server to exit. Resolves once the response is received; the actual
+// process exit happens ~150ms later, server-side.
+export async function shutdownServer(): Promise<void> {
+  await fetch("/api/shutdown", { method: "POST" });
+}
