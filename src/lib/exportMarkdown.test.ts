@@ -65,10 +65,10 @@ describe("exportReview", () => {
   });
 
   it("only emits legend types that appear in the comments", () => {
-    const md = exportReview([c({ type: "issue", body: "i" })]);
-    expect(md).toContain("ISSUE");
+    const md = exportReview([c({ type: "must-fix", body: "i" })]);
+    expect(md).toContain("MUST FIX");
     expect(md).not.toContain("SUGGESTION");
-    expect(md).not.toContain("PRAISE");
+    expect(md).not.toContain("NOTE");
   });
 
   it("includes the leading instruction", () => {
@@ -93,10 +93,10 @@ describe("exportReview", () => {
 
   it("uses '-' separators between marker / tag / location / body", () => {
     const md = exportReview([
-      c({ type: "issue", file: "a.ts", startLine: 5, body: "fix" }),
+      c({ type: "must-fix", file: "a.ts", startLine: 5, body: "fix" }),
     ]);
-    // Should look like: `1. [ISSUE] - \`a.ts:5\` - fix`
-    expect(md).toContain("1. [ISSUE] - `a.ts:5` - fix");
+    // Should look like: `1. [MUST FIX] - \`a.ts:5\` - fix`
+    expect(md).toContain("1. [MUST FIX] - `a.ts:5` - fix");
   });
 
   it("inlines a single-paragraph body on the header line", () => {

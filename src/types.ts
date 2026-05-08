@@ -26,7 +26,7 @@ export interface DiffFile {
   hunks: DiffHunk[];
 }
 
-export type CommentType = "issue" | "suggestion" | "note" | "praise";
+export type CommentType = "must-fix" | "suggestion" | "note";
 
 export interface Comment {
   id: string;

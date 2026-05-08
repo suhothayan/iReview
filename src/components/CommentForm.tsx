@@ -8,18 +8,46 @@ interface Props {
   scopeLabel: string;
 }
 
-const TYPES: { value: CommentType; label: string; color: string }[] = [
-  { value: "issue", label: "Issue", color: "text-red-600 dark:text-red-400" },
+interface TypeOption {
+  value: CommentType;
+  label: string;          // Title-case label for the toggle
+  exportLabel: string;    // ALL-CAPS form shown in CommentBubble + matches export
+  // Tailwind classes applied when this option is the active toggle button.
+  // Should evoke the same urgency family as the export tag color.
+  activeBg: string;
+  activeFg: string;
+  // Color used for the [LABEL] tag inside CommentBubble when reading.
+  bubbleColor: string;
+  description: string;
+}
+
+const TYPES: TypeOption[] = [
+  {
+    value: "must-fix",
+    label: "Must fix",
+    exportLabel: "MUST FIX",
+    activeBg: "bg-red-600 dark:bg-red-500",
+    activeFg: "text-white",
+    bubbleColor: "text-red-600 dark:text-red-400",
+    description: "Must be addressed",
+  },
   {
     value: "suggestion",
     label: "Suggestion",
-    color: "text-blue-600 dark:text-blue-400",
+    exportLabel: "SUGGESTION",
+    activeBg: "bg-accent",
+    activeFg: "text-accent-on",
+    bubbleColor: "text-blue-600 dark:text-blue-400",
+    description: "Improvement to consider",
   },
-  { value: "note", label: "Note", color: "text-fg-muted" },
   {
-    value: "praise",
-    label: "Praise",
-    color: "text-green-600 dark:text-green-400",
+    value: "note",
+    label: "Note",
+    exportLabel: "NOTE",
+    activeBg: "bg-fg-muted",
+    activeFg: "text-bg",
+    bubbleColor: "text-fg-muted",
+    description: "Observation, no action required",
   },
 ];
 
@@ -35,19 +63,9 @@ export function CommentForm({ initial, onSave, onCancel, scopeLabel }: Props) {
   return (
     <div className="stage-card my-2 mx-2 p-3 rounded border border-bg-line">
       <div className="flex items-center gap-2 mb-2 text-xs text-fg-muted">
-        <span>{scopeLabel}</span>
+        <span className="truncate" title={scopeLabel}>{scopeLabel}</span>
         <div className="flex-1" />
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as CommentType)}
-          className="bg-bg-line text-xs rounded px-1.5 py-0.5 text-fg"
-        >
-          {TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
+        <TypeToggle value={type} onChange={setType} />
       </div>
       <textarea
         ref={ta}
@@ -85,6 +103,45 @@ export function CommentForm({ initial, onSave, onCancel, scopeLabel }: Props) {
   );
 }
 
+// 3-way segmented toggle replacing the old <select>. Active option fills with
+// its urgency color; inactive options sit muted in the same row.
+function TypeToggle({
+  value,
+  onChange,
+}: {
+  value: CommentType;
+  onChange: (v: CommentType) => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Comment type"
+      className="flex border border-bg-line rounded overflow-hidden text-xs"
+    >
+      {TYPES.map((t) => {
+        const active = t.value === value;
+        return (
+          <button
+            key={t.value}
+            role="radio"
+            aria-checked={active}
+            type="button"
+            onClick={() => onChange(t.value)}
+            title={t.description}
+            className={`px-2.5 py-0.5 ${
+              active
+                ? `${t.activeBg} ${t.activeFg} font-medium`
+                : "bg-bg-line text-fg hover:bg-bg-elev"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function CommentBubble({
   comment,
   onEdit,
@@ -94,12 +151,12 @@ export function CommentBubble({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const t = TYPES.find((x) => x.value === comment.type)!;
+  const t = TYPES.find((x) => x.value === comment.type) ?? TYPES[1]; // fallback to suggestion
   return (
     <div className="stage-card my-2 mx-2 p-3 rounded border border-bg-line">
       <div className="flex items-center gap-2 mb-1 text-xs">
-        <span className={`font-semibold ${t.color}`}>
-          [{t.label.toUpperCase()}]
+        <span className={`font-semibold ${t.bubbleColor}`}>
+          [{t.exportLabel}]
         </span>
         <div className="flex-1" />
         <button

@@ -1,17 +1,15 @@
 import type { Comment, CommentType } from "../types";
 
 const TYPE_LABELS: Record<CommentType, string> = {
-  issue: "ISSUE",
+  "must-fix": "MUST FIX",
   suggestion: "SUGGESTION",
   note: "NOTE",
-  praise: "PRAISE",
 };
 
 const TYPE_DEFS: Record<CommentType, string> = {
-  issue: "problems to fix",
+  "must-fix": "must be addressed",
   suggestion: "improvements",
   note: "observations",
-  praise: "positive feedback",
 };
 
 // Continuation indent for ordered-list items. CommonMark needs at least 3
