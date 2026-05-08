@@ -73,8 +73,84 @@ describe("exportReview", () => {
 
   it("includes the leading instruction", () => {
     const md = exportReview([c({ body: "hi" })]);
-    expect(md.startsWith(
-      "I reviewed your code and have the following comments. Please address them.",
-    )).toBe(true);
+    expect(
+      md.startsWith(
+        "I reviewed your code and have the following comments. Please address them.",
+      ),
+    ).toBe(true);
+  });
+
+  // ----- new compact-format tests -----
+
+  it("uses [TYPE] tags without bold markers", () => {
+    const md = exportReview([
+      c({ type: "suggestion", file: "a.ts", startLine: 1, body: "x" }),
+    ]);
+    expect(md).toContain("[SUGGESTION]");
+    expect(md).not.toContain("**[");
+    expect(md).not.toContain("**SUGGESTION");
+  });
+
+  it("uses '-' separators between marker / tag / location / body", () => {
+    const md = exportReview([
+      c({ type: "issue", file: "a.ts", startLine: 5, body: "fix" }),
+    ]);
+    // Should look like: `1. [ISSUE] - \`a.ts:5\` - fix`
+    expect(md).toContain("1. [ISSUE] - `a.ts:5` - fix");
+  });
+
+  it("inlines a single-paragraph body on the header line", () => {
+    const md = exportReview([
+      c({ file: "a.ts", startLine: 1, body: "single paragraph body" }),
+    ]);
+    const itemLine = md
+      .split("\n")
+      .find((l) => l.startsWith("1. ")) ?? "";
+    expect(itemLine).toBe("1. [SUGGESTION] - `a.ts:1` - single paragraph body");
+  });
+
+  it("hoists multi-paragraph bodies into indented continuation blocks", () => {
+    const md = exportReview([
+      c({
+        file: "a.ts",
+        startLine: 1,
+        body: "first paragraph\n\nsecond paragraph\n\nthird paragraph",
+      }),
+    ]);
+    // First paragraph stays inline with the header.
+    expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - first paragraph");
+    // Subsequent paragraphs are indented with 3 spaces.
+    expect(md).toContain("\n   second paragraph\n");
+    expect(md).toContain("\n   third paragraph");
+    // And separated by blank lines.
+    expect(md).toContain("\n\n   second paragraph");
+    expect(md).toContain("\n\n   third paragraph");
+  });
+
+  it("preserves whitespace inside a single paragraph (e.g. multi-line code)", () => {
+    const md = exportReview([
+      c({
+        file: "a.ts",
+        startLine: 1,
+        body: "use\nthis instead",
+      }),
+    ]);
+    // Single paragraph (no blank line splits) is treated as one paragraph;
+    // the literal newline ends up inline since there are no separator
+    // blank lines. We just assert nothing weird happens.
+    expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - use\nthis instead");
+  });
+
+  it("collapses excessive blank lines between paragraphs", () => {
+    const md = exportReview([
+      c({
+        file: "a.ts",
+        startLine: 1,
+        body: "first\n\n\n\n\nsecond",
+      }),
+    ]);
+    // Multiple blank lines collapse into one paragraph break (not 5).
+    expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - first\n\n   second");
+    expect(md).not.toContain("   \n   ");
   });
 });

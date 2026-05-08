@@ -14,6 +14,11 @@ const TYPE_DEFS: Record<CommentType, string> = {
   praise: "positive feedback",
 };
 
+// Continuation indent for ordered-list items. CommonMark needs at least 3
+// spaces so a paragraph aligns with the content after a `1. ` marker; this
+// works for both 1- and 2-digit list numbers.
+const LIST_INDENT = "   ";
+
 export function exportReview(comments: Comment[]): string {
   if (comments.length === 0) return "";
 
@@ -31,18 +36,58 @@ export function exportReview(comments: Comment[]): string {
     .map((t) => `${TYPE_LABELS[t]} (${TYPE_DEFS[t]})`)
     .join(", ");
 
-  const header =
-    "I reviewed your code and have the following comments. Please address them.";
-  const lines: string[] = [header, "", `Comment types: ${legend}`, ""];
+  const sections: string[] = [
+    "I reviewed your code and have the following comments. Please address them.",
+    "",
+    `Comment types: ${legend}`,
+    "",
+  ];
 
   sorted.forEach((c, idx) => {
-    const tag = `**[${TYPE_LABELS[c.type]}]**`;
-    const loc = formatLocation(c);
-    const body = c.body.trim();
-    lines.push(`${idx + 1}. ${tag} ${loc} - ${body}`);
+    sections.push(formatComment(idx + 1, c));
   });
 
-  return lines.join("\n");
+  return sections.join("\n");
+}
+
+// Compact format optimized for LLM consumption:
+//   - First body paragraph stays inline with the header (one line for the
+//     common short-comment case — no wasted vertical space).
+//   - Additional paragraphs drop to indented continuation blocks (3 spaces
+//     + blank line separator) so they stay anchored to the list item
+//     instead of breaking out of the numbered list.
+function formatComment(n: number, c: Comment): string {
+  const tag = `[${TYPE_LABELS[c.type]}]`;
+  const loc = formatLocation(c);
+  const body = c.body.trim();
+
+  const paragraphs = splitParagraphs(body);
+  const first = paragraphs[0] ?? "";
+  const rest = paragraphs.slice(1);
+
+  const head = `${n}. ${tag} - ${loc} - ${first}`;
+  if (rest.length === 0) return head;
+
+  const tail = rest
+    .map((p) =>
+      p
+        .split("\n")
+        .map((line) => (line.length === 0 ? "" : LIST_INDENT + line))
+        .join("\n"),
+    )
+    .join("\n\n");
+
+  return `${head}\n\n${tail}`;
+}
+
+// Split a body into paragraphs separated by one or more blank lines. Whitespace
+// inside a paragraph is preserved (so multi-line code in a single paragraph
+// stays on consecutive lines).
+function splitParagraphs(body: string): string[] {
+  return body
+    .split(/\n[ \t]*\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 }
 
 function formatLocation(c: Comment): string {
