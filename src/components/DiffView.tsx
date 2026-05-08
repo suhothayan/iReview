@@ -1,5 +1,11 @@
 import { useState, useMemo } from "react";
-import type { DiffFile, DiffHunk, DiffLine, Comment } from "../types";
+import type {
+  Comment,
+  CommentType,
+  DiffFile,
+  DiffHunk,
+  DiffLine,
+} from "../types";
 import { useStore } from "../lib/store";
 import { CommentForm, CommentBubble } from "./CommentForm";
 
@@ -180,9 +186,9 @@ interface HunkProps {
     endLine: number,
     side: "new" | "old",
     body: string,
-    type: import("../types").CommentType,
+    type: CommentType,
   ) => void;
-  onUpdate: (id: string, body: string, type: import("../types").CommentType) => void;
+  onUpdate: (id: string, body: string, type: CommentType) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   editingComment: Comment | null;
@@ -270,6 +276,14 @@ function LineRow({
 
   const handleClick = (e: React.MouseEvent) => {
     if (lineNo === null) return;
+    // If a comment is being edited, ignore shift-clicks rather than silently
+    // discard the in-progress edit. Plain clicks fall through to the regular
+    // "start a new line comment" path, which closes the edit form — that's
+    // explicit enough.
+    if (form.kind === "edit" && e.shiftKey) {
+      window.getSelection()?.removeAllRanges();
+      return;
+    }
     if (
       e.shiftKey &&
       form.kind === "line" &&
@@ -279,7 +293,6 @@ function LineRow({
       const start = Math.min(form.startLine, lineNo);
       const end = Math.max(form.endLine, lineNo);
       setForm({ kind: "line", startLine: start, endLine: end, side });
-      // Prevent text-selection from the shift-click.
       window.getSelection()?.removeAllRanges();
     } else {
       setForm({ kind: "line", startLine: lineNo, endLine: lineNo, side });

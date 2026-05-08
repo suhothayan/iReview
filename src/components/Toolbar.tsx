@@ -3,6 +3,8 @@ import { exportReview } from "../lib/exportMarkdown";
 import { shutdownServer } from "../lib/api";
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
+import { ConfirmModal } from "./ConfirmModal";
+import { chipTone, type SelectionKind } from "../lib/tones";
 
 interface Props {
   repoBranch: string | null;
@@ -32,12 +34,29 @@ export function Toolbar({
     files,
   } = useStore();
   const [copied, setCopied] = useState(false);
+  const [confirm, setConfirm] = useState<
+    | null
+    | {
+        title: string;
+        body: string;
+        confirmLabel: string;
+        destructive?: boolean;
+        onConfirm: () => void;
+      }
+  >(null);
   const repoName = repoPath ? repoPath.split("/").pop() || repoPath : "";
 
   async function copyReview() {
     const md = exportReview(comments);
     if (!md) {
-      alert("No comments to export yet.");
+      onCopied?.(0);
+      // Reuse the toast slot via onCopied(0) is ugly; surface our own message:
+      setConfirm({
+        title: "No comments to export",
+        body: "Click any line in the diff to leave a comment, then come back here.",
+        confirmLabel: "Got it",
+        onConfirm: () => setConfirm(null),
+      });
       return;
     }
     await navigator.clipboard.writeText(md);
@@ -176,40 +195,55 @@ export function Toolbar({
       <IconButton
         icon="✕"
         title="Clear comments, reviewed flags, and selection"
-        onClick={() => {
-          if (
-            confirm(
-              "Clear all comments, reviewed flags, and the current selection?",
-            )
-          ) {
-            clearAll();
-            setShowCommitPicker(true);
-          }
-        }}
+        onClick={() =>
+          setConfirm({
+            title: "Clear everything?",
+            body: "This will delete all comments, reset the reviewed flags, and clear the current selection. The picker will reopen so you can pick fresh changes.",
+            confirmLabel: "Clear",
+            destructive: true,
+            onConfirm: () => {
+              clearAll();
+              setShowCommitPicker(true);
+              setConfirm(null);
+            },
+          })
+        }
         danger
         className="hidden sm:inline-flex"
       />
       <IconButton
         icon="⏻"
         title="Stop iReview server (close the app)"
-        onClick={async () => {
-          if (
-            !confirm(
-              "Stop iReview? You'll lose this session — but your comments and reviewed flags are saved per-repo and will come back next time.",
-            )
-          )
-            return;
-          try {
-            await shutdownServer();
-          } catch {
-            // The server may exit before the response makes it back — that's
-            // expected. Either way, signal "quit" to the app.
-          }
-          onQuit?.();
-        }}
+        onClick={() =>
+          setConfirm({
+            title: "Stop iReview?",
+            body: "You'll lose this session — but your comments and reviewed flags are saved per-repo and will come back next time.",
+            confirmLabel: "Stop iReview",
+            destructive: true,
+            onConfirm: async () => {
+              setConfirm(null);
+              try {
+                await shutdownServer();
+              } catch {
+                // Server may exit before the response makes it back — expected.
+              }
+              onQuit?.();
+            },
+          })
+        }
         danger
       />
       </div>
+
+      <ConfirmModal
+        open={confirm !== null}
+        title={confirm?.title ?? ""}
+        body={confirm?.body ?? ""}
+        confirmLabel={confirm?.confirmLabel ?? "OK"}
+        destructive={confirm?.destructive}
+        onConfirm={() => confirm?.onConfirm()}
+        onCancel={() => setConfirm(null)}
+      />
     </header>
   );
 }
@@ -280,7 +314,7 @@ function SegmentedControl<T extends string>({
 function SelectionChips() {
   const { selection, setShowCommitPicker } = useStore();
 
-  const chips: { key: string; label: string; tone: "commit" | "stage" | "unstage" }[] = [];
+  const chips: { key: string; label: string; tone: SelectionKind }[] = [];
   if (selection.shas.length > 0) {
     chips.push({
       key: "commits",
@@ -305,15 +339,6 @@ function SelectionChips() {
     );
   }
 
-  const tones: Record<string, string> = {
-    commit:
-      "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 border-yellow-300 dark:border-yellow-800",
-    unstage:
-      "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-200 border-orange-300 dark:border-orange-800",
-    stage:
-      "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-800",
-  };
-
   return (
     <button
       onClick={() => setShowCommitPicker(true)}
@@ -324,7 +349,7 @@ function SelectionChips() {
       {chips.map((c) => (
         <span
           key={c.key}
-          className={`text-xs px-2 py-0.5 rounded-full border font-medium ${tones[c.tone]}`}
+          className={`text-xs px-2 py-0.5 rounded-full border font-medium ${chipTone(c.tone)}`}
         >
           {c.label}
         </span>
