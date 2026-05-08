@@ -229,12 +229,18 @@ function Actions({
         onClick={onReset}
         disabled={!dirty}
         className="text-xs px-2 py-1 rounded text-fg-muted hover:text-fg disabled:opacity-30"
+        title="Discard your unsaved changes and revert to the last applied selection"
       >
         Reset
       </button>
       <button
         onClick={onApply}
         className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium hover:opacity-90 shadow-sm"
+        title={
+          dirty
+            ? "Apply this selection and load the diff"
+            : "Close the picker (selection unchanged)"
+        }
       >
         {dirty ? "Apply" : "Done"}
       </button>
