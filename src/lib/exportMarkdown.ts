@@ -49,43 +49,28 @@ export function exportReview(comments: Comment[]): string {
 }
 
 // Compact format optimized for LLM consumption:
-//   - First body paragraph stays inline with the header (one line for the
+//   - The first body line stays inline with the header (single line for the
 //     common short-comment case — no wasted vertical space).
-//   - Additional paragraphs drop to indented continuation blocks (3 spaces
-//     + blank line separator) so they stay anchored to the list item
-//     instead of breaking out of the numbered list.
+//   - EVERY subsequent line is indented 3 spaces, regardless of whether it
+//     was reached by a soft wrap (single newline) or a paragraph break
+//     (blank line). Blank lines stay blank (no trailing whitespace) so the
+//     paragraph break is preserved.
+//   - Excess blank lines (3+ consecutive newlines) collapse to a single
+//     paragraph break — the user typed too many returns.
 function formatComment(n: number, c: Comment): string {
   const tag = `[${TYPE_LABELS[c.type]}]`;
   const loc = formatLocation(c);
-  const body = c.body.trim();
+  const body = c.body.trim().replace(/\n{3,}/g, "\n\n");
 
-  const paragraphs = splitParagraphs(body);
-  const first = paragraphs[0] ?? "";
-  const rest = paragraphs.slice(1);
+  const lines = body.split("\n");
+  const head = `${n}. ${tag} - ${loc} - ${lines[0] ?? ""}`;
+  if (lines.length === 1) return head;
 
-  const head = `${n}. ${tag} - ${loc} - ${first}`;
-  if (rest.length === 0) return head;
-
-  const tail = rest
-    .map((p) =>
-      p
-        .split("\n")
-        .map((line) => (line.length === 0 ? "" : LIST_INDENT + line))
-        .join("\n"),
-    )
-    .join("\n\n");
-
-  return `${head}\n\n${tail}`;
-}
-
-// Split a body into paragraphs separated by one or more blank lines. Whitespace
-// inside a paragraph is preserved (so multi-line code in a single paragraph
-// stays on consecutive lines).
-function splitParagraphs(body: string): string[] {
-  return body
-    .split(/\n[ \t]*\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  const tail = lines
+    .slice(1)
+    .map((line) => (line.length === 0 ? "" : LIST_INDENT + line))
+    .join("\n");
+  return `${head}\n${tail}`;
 }
 
 function formatLocation(c: Comment): string {

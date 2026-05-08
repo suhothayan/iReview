@@ -127,18 +127,30 @@ describe("exportReview", () => {
     expect(md).toContain("\n\n   third paragraph");
   });
 
-  it("preserves whitespace inside a single paragraph (e.g. multi-line code)", () => {
+  it("indents soft-wrapped continuation lines (single newline)", () => {
     const md = exportReview([
       c({
         file: "a.ts",
         startLine: 1,
-        body: "use\nthis instead",
+        body: "Foo\nbar",
       }),
     ]);
-    // Single paragraph (no blank line splits) is treated as one paragraph;
-    // the literal newline ends up inline since there are no separator
-    // blank lines. We just assert nothing weird happens.
-    expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - use\nthis instead");
+    // Every line after the first stays anchored to the list item via the
+    // 3-space indent, even when separated by just a single newline.
+    expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - Foo\n   bar");
+  });
+
+  it("indents both soft-wrap and paragraph-break lines uniformly", () => {
+    const md = exportReview([
+      c({
+        file: "a.ts",
+        startLine: 1,
+        body: "first line\nsoft-wrap\n\nsecond paragraph",
+      }),
+    ]);
+    expect(md).toContain(
+      "1. [SUGGESTION] - `a.ts:1` - first line\n   soft-wrap\n\n   second paragraph",
+    );
   });
 
   it("collapses excessive blank lines between paragraphs", () => {
@@ -149,8 +161,8 @@ describe("exportReview", () => {
         body: "first\n\n\n\n\nsecond",
       }),
     ]);
-    // Multiple blank lines collapse into one paragraph break (not 5).
+    // 5 newlines (= 4 blank lines) collapse to one paragraph break.
     expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - first\n\n   second");
-    expect(md).not.toContain("   \n   ");
+    expect(md).not.toContain("\n\n\n");
   });
 });
