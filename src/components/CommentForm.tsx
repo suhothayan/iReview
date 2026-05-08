@@ -10,13 +10,15 @@ interface Props {
 
 interface TypeOption {
   value: CommentType;
-  label: string;          // Title-case label for the toggle
+  label: string;          // Lower-case label shown in the toggle
   exportLabel: string;    // ALL-CAPS form shown in CommentBubble + matches export
-  // Tailwind classes applied when this option is the active toggle button.
-  // Should evoke the same urgency family as the export tag color.
+  // Toggle pill: Tailwind classes for active background + text, plus the
+  // hover tint applied to the inactive state.
   activeBg: string;
-  activeFg: string;
-  // Color used for the [LABEL] tag inside CommentBubble when reading.
+  activeText: string;
+  hoverBg: string;
+  dotActive: string;      // saturated dot color for the active state
+  // Color used for the [TYPE] tag inside CommentBubble when reading.
   bubbleColor: string;
   description: string;
 }
@@ -24,28 +26,34 @@ interface TypeOption {
 const TYPES: TypeOption[] = [
   {
     value: "must-fix",
-    label: "Must fix",
+    label: "must fix",
     exportLabel: "MUST FIX",
-    activeBg: "bg-red-600 dark:bg-red-500",
-    activeFg: "text-white",
+    activeBg: "bg-red-100 dark:bg-red-950/40",
+    activeText: "text-red-700 dark:text-red-300",
+    hoverBg: "hover:bg-red-50 dark:hover:bg-red-950/20",
+    dotActive: "bg-red-500",
     bubbleColor: "text-red-600 dark:text-red-400",
     description: "Must be addressed",
   },
   {
     value: "suggestion",
-    label: "Suggestion",
+    label: "suggestion",
     exportLabel: "SUGGESTION",
-    activeBg: "bg-accent",
-    activeFg: "text-accent-on",
+    activeBg: "bg-blue-100 dark:bg-blue-950/40",
+    activeText: "text-blue-700 dark:text-blue-300",
+    hoverBg: "hover:bg-blue-50 dark:hover:bg-blue-950/20",
+    dotActive: "bg-blue-500",
     bubbleColor: "text-blue-600 dark:text-blue-400",
     description: "Improvement to consider",
   },
   {
     value: "note",
-    label: "Note",
+    label: "note",
     exportLabel: "NOTE",
-    activeBg: "bg-fg-muted",
-    activeFg: "text-bg",
+    activeBg: "bg-bg-line",
+    activeText: "text-fg",
+    hoverBg: "hover:bg-bg-line/60",
+    dotActive: "bg-fg-muted",
     bubbleColor: "text-fg-muted",
     description: "Observation, no action required",
   },
@@ -103,8 +111,9 @@ export function CommentForm({ initial, onSave, onCancel, scopeLabel }: Props) {
   );
 }
 
-// 3-way segmented toggle replacing the old <select>. Active option fills with
-// its urgency color; inactive options sit muted in the same row.
+// 3-way toggle: a translucent "holo" track holds three options. No dots —
+// the active option's tinted background carries the meaning. Rounded
+// rectangle (not pill) for a sleeker, more modern feel.
 function TypeToggle({
   value,
   onChange,
@@ -116,7 +125,7 @@ function TypeToggle({
     <div
       role="radiogroup"
       aria-label="Comment type"
-      className="flex border border-bg-line rounded overflow-hidden text-xs"
+      className="inline-flex items-center p-0.5 rounded-md backdrop-blur-sm bg-bg/40 border border-bg-line text-xs"
     >
       {TYPES.map((t) => {
         const active = t.value === value;
@@ -128,10 +137,10 @@ function TypeToggle({
             type="button"
             onClick={() => onChange(t.value)}
             title={t.description}
-            className={`px-2.5 py-0.5 ${
+            className={`px-2.5 py-0.5 rounded transition-colors ${
               active
-                ? `${t.activeBg} ${t.activeFg} font-medium`
-                : "bg-bg-line text-fg hover:bg-bg-elev"
+                ? `${t.activeBg} ${t.activeText} font-medium shadow-sm`
+                : `text-fg-muted hover:text-fg`
             }`}
           >
             {t.label}
