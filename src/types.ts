@@ -21,11 +21,12 @@ export interface DiffFile {
   path: string;       // new path (or old if deleted)
   oldPath: string | null;
   newPath: string | null;
-  status: "added" | "deleted" | "modified" | "renamed";
+  status: "added" | "deleted" | "modified" | "renamed" | "mode-changed";
+  binary?: boolean;
   hunks: DiffHunk[];
 }
 
-export type CommentType = "issue" | "suggestion" | "note" | "praise";
+export type CommentType = "must-fix" | "suggestion" | "note";
 
 export interface Comment {
   id: string;

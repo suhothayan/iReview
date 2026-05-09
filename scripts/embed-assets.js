@@ -17,12 +17,16 @@ if (!fs.existsSync(distDir)) {
   process.exit(1);
 }
 
+// Explicit allowlist of extensions that may ship in the bundled binary.
+// Sourcemaps (`.map`) deliberately excluded — they leak module structure
+// and aren't needed at runtime. Anything not on the list is skipped (and a
+// warning printed) so a stray `.env` / `.key` in dist/ never reaches the
+// embedded payload.
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
   ".mjs": "application/javascript; charset=utf-8",
   ".css": "text/css; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".jpg": "image/jpeg",
@@ -32,8 +36,6 @@ const MIME = {
   ".woff2": "font/woff2",
   ".ttf": "font/ttf",
   ".ico": "image/x-icon",
-  ".map": "application/json; charset=utf-8",
-  ".txt": "text/plain; charset=utf-8",
 };
 
 function* walk(dir) {
@@ -46,10 +48,18 @@ function* walk(dir) {
 
 const assets = {};
 let total = 0;
+let skipped = 0;
 for (const abs of walk(distDir)) {
   const rel = "/" + path.relative(distDir, abs).split(path.sep).join("/");
   const ext = path.extname(abs).toLowerCase();
-  const type = MIME[ext] || "application/octet-stream";
+  if (!(ext in MIME)) {
+    console.warn(
+      `[embed-assets] skipping ${rel} — extension '${ext || "(none)"}' not in allowlist`,
+    );
+    skipped++;
+    continue;
+  }
+  const type = MIME[ext];
   const bytes = fs.readFileSync(abs);
   total += bytes.length;
   assets[rel] = { type, b64: bytes.toString("base64") };
@@ -64,6 +74,7 @@ const body = `export const embeddedAssets = ${JSON.stringify(assets, null, 0)};\
 fs.writeFileSync(outFile, header + body);
 
 const sizeKb = (total / 1024).toFixed(1);
+const note = skipped > 0 ? ` (skipped ${skipped})` : "";
 console.log(
-  `[embed-assets] embedded ${Object.keys(assets).length} files (${sizeKb} KB) -> ${path.relative(projectRoot, outFile)}`,
+  `[embed-assets] embedded ${Object.keys(assets).length} files (${sizeKb} KB)${note} -> ${path.relative(projectRoot, outFile)}`,
 );

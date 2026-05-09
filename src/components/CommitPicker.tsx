@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
-import { fetchCommits, fetchRepo, type CommitInfo } from "../lib/api";
+import {
+  errorMessage,
+  fetchCommits,
+  fetchRepo,
+  type CommitInfo,
+} from "../lib/api";
 import { useStore } from "../lib/store";
+import { badgeTone, type SelectionKind } from "../lib/tones";
 
 type Row =
   | { kind: "unstaged" }
@@ -43,8 +49,8 @@ export function CommitPicker() {
         hasUnstaged: info.hasUnstaged,
       });
       setCommits(fresh);
-    } catch (e: any) {
-      setError(e.message || String(e));
+    } catch (e: unknown) {
+      setError(errorMessage(e));
     } finally {
       setRefreshing(false);
     }
@@ -56,8 +62,8 @@ export function CommitPicker() {
       .then((c) => {
         if (!cancelled) setCommits(c);
       })
-      .catch((e) => {
-        if (!cancelled) setError(e.message || String(e));
+      .catch((e: unknown) => {
+        if (!cancelled) setError(errorMessage(e));
       });
     return () => {
       cancelled = true;
@@ -137,7 +143,7 @@ export function CommitPicker() {
                   onToggle={() =>
                     setDraft({ ...draft, unstaged: !draft.unstaged })
                   }
-                  badge={<Badge color="orange">UNSTAGED</Badge>}
+                  badge={<Badge kind="unstage">UNSTAGED</Badge>}
                   title="Unstaged changes"
                   subtitle={
                     hasUnstaged
@@ -154,7 +160,7 @@ export function CommitPicker() {
                   checked={draft.staged && hasStaged}
                   disabled={!hasStaged}
                   onToggle={() => setDraft({ ...draft, staged: !draft.staged })}
-                  badge={<Badge color="blue">STAGED</Badge>}
+                  badge={<Badge kind="stage">STAGED</Badge>}
                   title="Staged changes"
                   subtitle={
                     hasStaged
@@ -229,12 +235,18 @@ function Actions({
         onClick={onReset}
         disabled={!dirty}
         className="text-xs px-2 py-1 rounded text-fg-muted hover:text-fg disabled:opacity-30"
+        title="Discard your unsaved changes and revert to the last applied selection"
       >
         Reset
       </button>
       <button
         onClick={onApply}
         className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium hover:opacity-90 shadow-sm"
+        title={
+          dirty
+            ? "Apply this selection and load the diff"
+            : "Close the picker (selection unchanged)"
+        }
       >
         {dirty ? "Apply" : "Done"}
       </button>
@@ -299,20 +311,15 @@ function PickerRow({
 }
 
 function Badge({
-  color,
+  kind,
   children,
 }: {
-  color: "orange" | "blue";
+  kind: SelectionKind;
   children: React.ReactNode;
 }) {
-  const colors: Record<string, string> = {
-    orange:
-      "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700/60",
-    blue: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700/60",
-  };
   return (
     <span
-      className={`text-[10px] px-1.5 py-0.5 rounded border font-mono tracking-wide ${colors[color]}`}
+      className={`text-[10px] px-1.5 py-0.5 rounded border font-mono tracking-wide ${badgeTone(kind)}`}
     >
       {children}
     </span>
