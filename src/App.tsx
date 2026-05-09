@@ -13,6 +13,7 @@ import { NavBar } from "./components/NavBar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StoppedScreen } from "./components/StoppedScreen";
 import { ResponsiveFileList } from "./components/ResponsiveFileList";
+import { Check, Plus, X } from "lucide-react";
 
 export default function App() {
   const repoPath = useStore((s) => s.repoPath);
@@ -80,7 +81,7 @@ export default function App() {
       />
       {toast && (
         <div className="px-4 py-2 bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 border-b border-green-300 dark:border-green-800 text-sm flex items-center gap-3">
-          <span aria-hidden>✓</span>
+          <Check className="w-4 h-4 shrink-0" aria-hidden />
           <span className="flex-1">{toast}</span>
           <button
             onClick={() => setToast(null)}
@@ -88,7 +89,7 @@ export default function App() {
             aria-label="Dismiss"
             title="Dismiss this notification"
           >
-            ✕
+            <X className="w-3.5 h-3.5" aria-hidden />
           </button>
         </div>
       )}
@@ -150,7 +151,7 @@ export default function App() {
                   className="px-5 py-2 rounded-md bg-accent text-accent-on font-medium hover:opacity-90 inline-flex items-center gap-2 shadow-sm"
                   title="Open the picker to choose commits / staged / unstaged changes"
                 >
-                  <span aria-hidden className="text-base leading-none">⊕</span>
+                  <Plus className="w-4 h-4" aria-hidden />
                   <span>Pick changes</span>
                 </button>
                 <div className="text-xs text-fg-dim text-center max-w-md">

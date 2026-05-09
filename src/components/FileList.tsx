@@ -1,6 +1,12 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useStore } from "../lib/store";
 import type { DiffFile } from "../types";
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
+} from "lucide-react";
 
 type DirNode = {
   kind: "dir";
@@ -146,19 +152,19 @@ export function FileList({ onSelect }: FileListProps = {}) {
         <div className="flex-1" />
         <button
           onClick={() => setExpanded(new Set())}
-          className="w-7 h-7 rounded text-base text-fg-muted hover:text-fg hover:bg-bg-line inline-flex items-center justify-center"
+          className="w-7 h-7 rounded text-fg-muted hover:text-fg hover:bg-bg-line inline-flex items-center justify-center"
           title="Collapse all"
           aria-label="Collapse all"
         >
-          ⊟
+          <ChevronsDownUp className="w-4 h-4" aria-hidden />
         </button>
         <button
           onClick={() => setExpanded(allDirPaths(tree))}
-          className="w-7 h-7 rounded text-base text-fg-muted hover:text-fg hover:bg-bg-line inline-flex items-center justify-center"
+          className="w-7 h-7 rounded text-fg-muted hover:text-fg hover:bg-bg-line inline-flex items-center justify-center"
           title="Expand all"
           aria-label="Expand all"
         >
-          ⊞
+          <ChevronsUpDown className="w-4 h-4" aria-hidden />
         </button>
       </div>
       <ul>
@@ -231,7 +237,13 @@ function TreeRow(p: RowProps) {
                 : "Mark all files in this folder reviewed"
             }
           />
-          <span className="w-3 text-xs text-fg-muted">{open ? "▾" : "▸"}</span>
+          <span className="w-3 inline-flex items-center justify-center text-fg-muted">
+            {open ? (
+              <ChevronDown className="w-3 h-3" aria-hidden />
+            ) : (
+              <ChevronRight className="w-3 h-3" aria-hidden />
+            )}
+          </span>
           <span className="truncate font-medium">{p.node.name}</span>
           <span className="text-[10px] text-fg-muted ml-auto pl-2 shrink-0">
             {reviewedCount}/{descendants.length}
