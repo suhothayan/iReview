@@ -316,24 +316,33 @@ function LineRow({
           {line.text}
         </div>
       </div>
-      {comments.map((c) =>
-        editingComment && editingComment.id === c.id ? (
-          <CommentForm
-            key={c.id}
-            initial={c}
-            scopeLabel={`Editing comment on ${rangeLabel(c.startLine, c.endLine)}`}
-            onCancel={() => setForm({ kind: "none" })}
-            onSave={(body, type) => onUpdate(c.id, body, type)}
-          />
-        ) : (
-          <CommentBubble
-            key={c.id}
-            comment={c}
-            onEdit={() => onEdit(c.id)}
-            onDelete={() => onDelete(c.id)}
-          />
-        ),
-      )}
+      {comments
+        .filter((c) => {
+          // Render bubble/form only at the range's anchor line (endLine).
+          // Other lines in the range still get the `has-comment` indicator
+          // via the un-filtered `comments` array used for class names above.
+          const anchor = c.endLine ?? c.startLine;
+          const lineOnSide = c.side === "new" ? line.newNo : line.oldNo;
+          return anchor === lineOnSide;
+        })
+        .map((c) =>
+          editingComment && editingComment.id === c.id ? (
+            <CommentForm
+              key={c.id}
+              initial={c}
+              scopeLabel={`Editing comment on ${rangeLabel(c.startLine, c.endLine)}`}
+              onCancel={() => setForm({ kind: "none" })}
+              onSave={(body, type) => onUpdate(c.id, body, type)}
+            />
+          ) : (
+            <CommentBubble
+              key={c.id}
+              comment={c}
+              onEdit={() => onEdit(c.id)}
+              onDelete={() => onDelete(c.id)}
+            />
+          ),
+        )}
       {isFormHere && lineNo !== null && form.kind === "line" && (
         <CommentForm
           scopeLabel={
