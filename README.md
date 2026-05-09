@@ -4,23 +4,9 @@ Browser-based local diff review for AI-generated changes.
 
 Point it at a git repository, pick any combination of recent commits + uncommitted work, review the resulting diff like a GitHub pull request, leave typed comments (must-fix / suggestion / note), and click **Copy review** to put a structured Markdown summary on your clipboard — ready to paste back to your coding agent.
 
-## What it looks like
+## Demo
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│ 🔍 iReview  my-project  ⎇ feature/login  @8a3f1c9e                     │
-│   Reviewing  [3 commits] [unstaged]   ⊕ Pick changes  ▤ Single ≡ Scroll│
-├──────────────┬─────────────────────────────────────────────────────────┤
-│ Files (4)    │ src/auth.ts                            modified         │
-│ ▾ src        │ @@ -10,7 +10,8 @@ function check()                      │
-│   ☐ M auth.ts│  10  10   const user = await getUser(id)                 │
-│   ☑ M db.ts  │  11  11   if (!user) {                                   │
-│   ☐ A foo.ts │  -   12 +   throw new Error("nope")                      │
-│ ▾ test       │  ┌───────────────────────────────────────────────┐      │
-│   ☐ A x.test │  │ [MUST FIX] add a more specific message        │      │
-│              │  └───────────────────────────────────────────────┘      │
-└──────────────┴─────────────────────────────────────────────────────────┘
-```
+![demo](./docs/demo.gif)
 
 ## Install + run
 
