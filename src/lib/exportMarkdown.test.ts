@@ -165,4 +165,44 @@ describe("exportReview", () => {
     expect(md).toContain("1. [SUGGESTION] - `a.ts:1` - first\n\n   second");
     expect(md).not.toContain("\n\n\n");
   });
+
+  it("indents items 10+ with 4 spaces (matching marker width)", () => {
+    const many = Array.from({ length: 12 }, (_, i) =>
+      c({
+        id: `id${i}`,
+        file: "a.ts",
+        startLine: i + 1,
+        body: "first paragraph\n\nsecond paragraph",
+      }),
+    );
+    const md = exportReview(many);
+    // Item 1: 3-space indent.
+    expect(md).toContain(
+      "1. [SUGGESTION] - `a.ts:1` - first paragraph\n\n   second paragraph",
+    );
+    // Items 10-12: 4-space indent (matches "10. ").
+    expect(md).toContain(
+      "10. [SUGGESTION] - `a.ts:10` - first paragraph\n\n    second paragraph",
+    );
+    expect(md).toContain(
+      "11. [SUGGESTION] - `a.ts:11` - first paragraph\n\n    second paragraph",
+    );
+    expect(md).toContain(
+      "12. [SUGGESTION] - `a.ts:12` - first paragraph\n\n    second paragraph",
+    );
+  });
+
+  it("falls back gracefully on legacy comment types", () => {
+    // Pre-rename types: 'issue' → must-fix; 'praise' → note; bogus → suggestion.
+    const md = exportReview([
+      c({ type: "issue" as never, file: "a.ts", startLine: 1, body: "old issue" }),
+      c({ type: "praise" as never, file: "a.ts", startLine: 2, body: "old praise" }),
+      c({ type: "bogus" as never, file: "a.ts", startLine: 3, body: "weird" }),
+    ]);
+    expect(md).not.toContain("[undefined]");
+    expect(md).not.toContain("undefined (");
+    expect(md).toContain("[MUST FIX]");
+    expect(md).toContain("[NOTE]");
+    expect(md).toContain("[SUGGESTION]");
+  });
 });

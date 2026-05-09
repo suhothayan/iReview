@@ -26,8 +26,19 @@ export function ConfirmModal({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
-      if (e.key === "Enter") onConfirm();
+      if (e.key === "Escape") {
+        onCancel();
+        return;
+      }
+      if (e.key === "Enter") {
+        // Don't auto-confirm if the user is typing into a text input or
+        // textarea — Enter belongs to the form there. Only fire when focus
+        // is on a button (e.g. the autofocused confirm button) or the body.
+        const target = e.target as HTMLElement | null;
+        const tag = target?.tagName.toLowerCase();
+        if (tag === "textarea" || tag === "input") return;
+        onConfirm();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

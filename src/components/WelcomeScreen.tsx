@@ -38,19 +38,33 @@ export function WelcomeScreen({ info }: { info: NoRepoInfo }) {
         </div>
 
         <div className="text-fg text-sm font-medium mb-2">To get started:</div>
-        <ol className="text-sm text-fg-muted space-y-2 list-decimal pl-5 mb-6">
-          <li>Quit iReview (close this tab and stop the binary).</li>
+        <ol className="text-sm text-fg-muted space-y-2 list-decimal pl-5 mb-4">
           <li>
-            Re-launch it with the path to your repo:
+            Stop iReview (close this tab and use the <code>⏻</code> in the
+            toolbar, or just close the terminal).
+          </li>
+          <li>
+            Open a terminal <em>inside</em> your project folder and run:
+            <pre className="mt-1 bg-bg-elev rounded p-2 font-mono text-xs text-fg overflow-x-auto border border-bg-line">
+              ireview
+            </pre>
+            iReview will walk up from there and find the repo root automatically.
+          </li>
+          <li>
+            Or pass the path explicitly:
             <pre className="mt-1 bg-bg-elev rounded p-2 font-mono text-xs text-fg overflow-x-auto border border-bg-line">
               ireview /path/to/your/repo
             </pre>
           </li>
         </ol>
 
-        <div className="text-xs text-fg-dim border-t border-bg-line pt-4">
-          Tip: launch it from inside any subdirectory of a git repo and it
-          finds the repo root automatically — no path argument needed.
+        <div className="text-xs text-fg-dim border-t border-bg-line pt-4 space-y-1">
+          <p>
+            <strong className="text-fg-muted">Double-clicked the binary?</strong>{" "}
+            Most operating systems launch the binary from your home folder, not
+            the folder you double-clicked from. Use a terminal so iReview knows
+            where to look — that's the only way it can locate your repo.
+          </p>
         </div>
       </div>
     </div>

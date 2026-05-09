@@ -7,10 +7,12 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { embeddedAssets } from "./embedded-assets.js";
+import pkg from "../package.json" with { type: "json" };
 
 const execFileP = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const VERSION = pkg.version;
 
 // Parse CLI args + env. Positional arg is the repo path.
 //   ireview                 -> review cwd
@@ -32,7 +34,7 @@ for (let i = 0; i < argv.length; i++) {
   } else if (a === "--no-open") {
     argOpen = false;
   } else if (a === "--version" || a === "-v") {
-    console.log("iReview v0.1");
+    console.log(`iReview v${VERSION}`);
     process.exit(0);
   } else if (!a.startsWith("-")) {
     argRepo = a;
@@ -211,6 +213,15 @@ app.get("/api/diff", async (req, res) => {
         base = await resolveParent(oldest);
       }
 
+      // Resolution priority — when multiple of {unstaged, staged, commits}
+      // are set, we collapse to a single git diff:
+      //   - includeUnstaged set => `git diff <base>` (working tree vs base).
+      //     Implicitly includes staged + any commits between base and HEAD,
+      //     which is what users expect when picking commits + dirty edits.
+      //   - else includeStaged set => `git diff --cached <base>` (index vs base).
+      //     Includes any commits between base and HEAD too, but no dirty edits.
+      //   - else commits-only => `git diff <base>..<newest>`.
+      //   - else => empty (nothing selected).
       if (includeUnstaged) {
         args = ["diff", "--no-color", "--unified=3", base, "--"];
       } else if (includeStaged) {

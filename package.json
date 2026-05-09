@@ -3,7 +3,30 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Browser-based local diff review for AI-generated changes",
+  "description": "Browser-based local diff review for AI-generated changes — review, comment, export Markdown back to your AI agent.",
+  "license": "MIT",
+  "author": "suhothayan <suhothayan.ireview@gmail.com> (https://github.com/suhothayan)",
+  "homepage": "https://github.com/suhothayan/iReview#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suhothayan/iReview.git"
+  },
+  "bugs": {
+    "url": "https://github.com/suhothayan/iReview/issues"
+  },
+  "keywords": [
+    "code-review",
+    "diff",
+    "git",
+    "ai",
+    "claude",
+    "cursor",
+    "copilot",
+    "review-tool"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "concurrently -n server,client -c blue,magenta \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "node server/index.js",

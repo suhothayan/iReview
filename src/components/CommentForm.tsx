@@ -10,15 +10,13 @@ interface Props {
 
 interface TypeOption {
   value: CommentType;
-  label: string;          // Lower-case label shown in the toggle
-  exportLabel: string;    // ALL-CAPS form shown in CommentBubble + matches export
-  // Toggle pill: Tailwind classes for active background + text, plus the
-  // hover tint applied to the inactive state.
+  label: string;          // Lower-case label shown in the toggle (sm+).
+  shortLabel: string;     // Compressed label shown on narrow widths (< sm).
+  exportLabel: string;    // ALL-CAPS form shown in CommentBubble + matches export.
   activeBg: string;
   activeText: string;
   hoverBg: string;
-  dotActive: string;      // saturated dot color for the active state
-  // Color used for the [TYPE] tag inside CommentBubble when reading.
+  dotActive: string;
   bubbleColor: string;
   description: string;
 }
@@ -27,6 +25,7 @@ const TYPES: TypeOption[] = [
   {
     value: "must-fix",
     label: "must fix",
+    shortLabel: "must",
     exportLabel: "MUST FIX",
     activeBg: "bg-red-100 dark:bg-red-950/40",
     activeText: "text-red-700 dark:text-red-300",
@@ -38,6 +37,7 @@ const TYPES: TypeOption[] = [
   {
     value: "suggestion",
     label: "suggestion",
+    shortLabel: "sugg",
     exportLabel: "SUGGESTION",
     activeBg: "bg-blue-100 dark:bg-blue-950/40",
     activeText: "text-blue-700 dark:text-blue-300",
@@ -49,6 +49,7 @@ const TYPES: TypeOption[] = [
   {
     value: "note",
     label: "note",
+    shortLabel: "note",
     exportLabel: "NOTE",
     activeBg: "bg-bg-line",
     activeText: "text-fg",
@@ -137,13 +138,14 @@ function TypeToggle({
             type="button"
             onClick={() => onChange(t.value)}
             title={t.description}
-            className={`px-2.5 py-0.5 rounded transition-colors ${
+            className={`px-2 sm:px-2.5 py-0.5 rounded transition-colors whitespace-nowrap ${
               active
                 ? `${t.activeBg} ${t.activeText} font-medium shadow-sm`
                 : `text-fg-muted hover:text-fg`
             }`}
           >
-            {t.label}
+            <span className="sm:hidden">{t.shortLabel}</span>
+            <span className="hidden sm:inline">{t.label}</span>
           </button>
         );
       })}

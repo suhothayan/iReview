@@ -2,7 +2,7 @@
 
 Browser-based local diff review for AI-generated changes.
 
-Point it at a git repository, pick any combination of recent commits + uncommitted work, review the resulting diff like a GitHub pull request, leave typed comments (issue / suggestion / note / praise), and click **Copy review** to put a structured Markdown summary on your clipboard — ready to paste back to your coding agent.
+Point it at a git repository, pick any combination of recent commits + uncommitted work, review the resulting diff like a GitHub pull request, leave typed comments (must-fix / suggestion / note), and click **Copy review** to put a structured Markdown summary on your clipboard — ready to paste back to your coding agent.
 
 ## What it looks like
 
@@ -17,7 +17,7 @@ Point it at a git repository, pick any combination of recent commits + uncommitt
 │   ☑ M db.ts  │  11  11   if (!user) {                                   │
 │   ☐ A foo.ts │  -   12 +   throw new Error("nope")                      │
 │ ▾ test       │  ┌───────────────────────────────────────────────┐      │
-│   ☐ A x.test │  │ [SUGGESTION] add a more specific message      │      │
+│   ☐ A x.test │  │ [MUST FIX] add a more specific message        │      │
 │              │  └───────────────────────────────────────────────┘      │
 └──────────────┴─────────────────────────────────────────────────────────┘
 ```
@@ -26,7 +26,7 @@ Point it at a git repository, pick any combination of recent commits + uncommitt
 
 ### Option A — single binary (recommended)
 
-Download the binary for your OS from the [Releases](https://github.com/suhothayan/iReview/releases) page and run it on any git repository:
+Download the binary for your OS from the [Releases](https://github.com/suhothayan/iReview/releases) page (once v0.1 is published) and run it on any git repository:
 
 ```bash
 ./ireview /path/to/your/repo
@@ -39,7 +39,7 @@ cd /your/repo/some/subdir
 ireview
 ```
 
-It walks up looking for `.git`, picks a free port, and opens your browser automatically.
+It walks up looking for `.git`, listens on port `3737` by default, and opens your browser automatically. Use `--port N` to override.
 
 **Requires:** `git` installed on your system.
 
@@ -56,15 +56,16 @@ Vite dev server on `:5173`, Express API on `:3737`.
 
 ## Features
 
-- **Pick any selection.** Recent commits + uncommitted (staged / unstaged) all in one picker — combined into a single diff. Reviewed/total counter on the picker tells you what's currently selected.
+- **Pick any selection.** Recent commits + uncommitted (staged / unstaged) all in one picker — combined into a single diff.
 - **GitHub-style diff viewer.** Unified diff with hunk headers, file tree sidebar, sticky per-file headers, comment count badges.
-- **Click to comment.** Click a line to leave a typed comment (issue / suggestion / note / praise). **Shift-click** another line on the same side to extend a multi-line range. File-level and review-level comments too.
+- **Click to comment.** Click a line to leave a typed comment (must-fix / suggestion / note). **Shift-click** another line on the same side to extend a multi-line range. File-level and review-level comments too.
 - **Mark files reviewed.** Per-file checkbox, plus tri-state cascading checkboxes on directories — tick a folder to mark every file inside as reviewed.
 - **Two view modes.** **Single** (one file at a time, with Prev / Next nav) or **Scroll all** (continuous scroll, sidebar highlight follows scroll position).
 - **Copy review.** Numbered, structured Markdown lands on your clipboard with one click. Paste into your AI agent's chat to apply fixes.
 - **Light + dark theme.** CSS variables, theme toggle, honours `prefers-color-scheme` on first load, persists choice.
 - **Mobile / tablet friendly.** Toolbar wraps; sidebar becomes a drawer below `md`; nav labels collapse to icons.
 - **Per-repo session persistence.** Comments and reviewed flags survive page reloads, keyed by repo path.
+- **Quit from the browser.** No terminal needed — click the ⏻ in the toolbar to stop the server cleanly.
 
 ## Command-line options
 
@@ -85,19 +86,23 @@ Options:
 
 The exported review is structured Markdown optimized for pasting into AI agent chats:
 
-```markdown
+```
 I reviewed your code and have the following comments. Please address them.
 
-Comment types: SUGGESTION (improvements), ISSUE (problems to fix)
+Comment types: MUST FIX (must be addressed), SUGGESTION (improvements), NOTE (observations)
 
-1. **[SUGGESTION]** `src/auth.ts:12` - add a more specific error message
-2. **[ISSUE]** `src/db.ts:42-50` - this transaction can deadlock under contention
-3. **[NOTE]** `src/auth.ts` - consider extracting this into a dedicated module
+1. [MUST FIX] - `src/db.ts:42-50` - this transaction can deadlock under contention
+2. [SUGGESTION] - `src/auth.ts:12` - add a more specific error message
+3. [SUGGESTION] - `src/auth.ts:50` - prefer Result<> over throwing here
+
+   the calling layer would rather branch on a typed result than wrap a try/catch
+3. [NOTE] - `src/auth.ts` - consider extracting this into a dedicated module
 ```
 
-- Numbered for easy reference
+- Numbered for easy reference (you can ask the agent: "address comment #2")
 - File-level comments show as `` `path` ``, line as `` `path:N` ``, range as `` `path:N-M` ``
 - Legend only includes types you actually used
+- Multi-paragraph bodies indent under the header so they stay inside the list item
 - Comments sorted by file (review-level first), then by line
 
 ## Building binaries yourself
@@ -116,15 +121,21 @@ npm run build:binary:windows-x64
 npm run build:binary:all
 ```
 
-Binaries are ~60 MB each — they bundle Bun's JS runtime + the built React frontend (embedded as base64) + the Express server. The only runtime dependency is `git`.
+Binaries are ~60 MB each — they bundle Bun's JS runtime + the built React frontend (embedded as base64) + the Express server. **Build prerequisite:** [Bun](https://bun.sh/) on your `$PATH` (or at `~/.bun/bin/bun`). Runtime dependency: `git`.
+
+## Security
+
+iReview binds to `127.0.0.1` only and authenticates the shutdown endpoint with a per-boot token. See [SECURITY.md](./SECURITY.md) to report a vulnerability.
 
 ## Architecture
 
-- `server/index.js` — Express + cors. Shells out to `git` via `execFile` (no shell injection surface). Endpoints: `/api/repo`, `/api/diff` (Selection-based), `/api/commits`. Falls back to embedded assets when run as a compiled binary.
-- `src/lib/parseDiff.ts` — git unified diff → structured `DiffFile[]`. Tested against fixture diffs (modify / add / delete / rename / multi-hunk / no-newline-at-EOF).
+- `server/index.js` — Express + cors. Shells out to `git` via `execFile` (no shell injection surface). Endpoints: `/api/repo`, `/api/diff` (Selection-based), `/api/commits`, `/api/shutdown` (token-protected). Falls back to embedded assets when run as a compiled binary.
+- `src/lib/parseDiff.ts` — git unified diff → structured `DiffFile[]`. Tested against fixture diffs (modify / add / delete / rename / multi-hunk / mode-only / binary / quoted paths / no-newline-at-EOF).
 - `src/lib/store.ts` — Zustand store. Comments + reviewed flags persisted per repo via explicit `loadSession` / `saveSession`.
 - `src/lib/exportMarkdown.ts` — comments → clipboard Markdown.
-- `src/components/` — `Toolbar`, `FileList` (tree), `DiffView`, `CommentForm`, `CommitPicker`, `Logo`.
+- `src/lib/tones.ts` — shared color palette for selection chips and badges.
+- `src/components/` — `Toolbar`, `FileList` (tree), `DiffView`, `CommentForm`, `CommitPicker`, `ConfirmModal`, `Logo`, screens.
+- `src/hooks/` — `useBootRepo`, `useScrollSpy`, `useFileNavigation`.
 - `scripts/embed-assets.js` — reads `dist/` after `vite build` and bakes it into `server/embedded-assets.js` for the binary.
 
 ## Project scripts
@@ -137,6 +148,10 @@ npm run typecheck         # tsc --noEmit
 npm run test              # vitest run
 npm run build:binary      # build the standalone executable
 ```
+
+## Contributing
+
+PRs welcome. Run `npm run typecheck` and `npm test` before submitting; both should be green.
 
 ## License
 

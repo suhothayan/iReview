@@ -168,6 +168,13 @@ export function parseDiff(text: string): DiffFile[] {
 }
 
 function stripPrefix(p: string): string {
+  // git quotes paths containing spaces or non-ASCII chars in the ---/+++
+  // headers, e.g. `--- "a/has space.ts"`. Strip the surrounding quotes (and
+  // backslash-escapes the quote form uses) before pulling off the a/ or b/
+  // prefix.
+  if (p.startsWith('"') && p.endsWith('"')) {
+    p = p.slice(1, -1).replace(/\\(.)/g, "$1");
+  }
   if (p.startsWith("a/") || p.startsWith("b/")) return p.slice(2);
   return p;
 }

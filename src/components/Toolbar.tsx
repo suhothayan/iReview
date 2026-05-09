@@ -48,17 +48,7 @@ export function Toolbar({
 
   async function copyReview() {
     const md = exportReview(comments);
-    if (!md) {
-      onCopied?.(0);
-      // Reuse the toast slot via onCopied(0) is ugly; surface our own message:
-      setConfirm({
-        title: "No comments to export",
-        body: "Click any line in the diff to leave a comment, then come back here.",
-        confirmLabel: "Got it",
-        onConfirm: () => setConfirm(null),
-      });
-      return;
-    }
+    if (!md) return; // button is disabled when there's nothing to export
     await navigator.clipboard.writeText(md);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
@@ -138,7 +128,10 @@ export function Toolbar({
         title="Pick which commits / staged / unstaged changes to review"
       >
         <span aria-hidden>{showCommitPicker ? "←" : "⊕"}</span>
-        <span>{showCommitPicker ? "Back to diff" : "Pick changes"}</span>
+        <span className="hidden sm:inline">
+          {showCommitPicker ? "Back to diff" : "Pick changes"}
+        </span>
+        <span className="sm:hidden">{showCommitPicker ? "Back" : "Pick"}</span>
       </button>
 
       {!showCommitPicker && (
@@ -176,16 +169,27 @@ export function Toolbar({
 
       <Divider />
 
-      {/* Group: review export — primary action */}
+      {/* Group: review export — primary action. Disabled when there are no
+          comments to export — the empty-export modal felt heavier than warranted. */}
       <button
         onClick={copyReview}
-        className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium hover:opacity-90 inline-flex items-center gap-1.5"
-        title="Copy structured Markdown review to clipboard"
+        disabled={comments.length === 0}
+        className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium hover:opacity-90 inline-flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:opacity-40"
+        title={
+          comments.length === 0
+            ? "Click any line in the diff to leave a comment first"
+            : "Copy structured Markdown review to clipboard"
+        }
       >
         <span aria-hidden className="text-base leading-none -mt-0.5">
           ⎘
         </span>
-        {copied ? "Copied!" : `Copy review (${comments.length})`}
+        <span className="hidden sm:inline">
+          {copied ? "Copied!" : `Copy review (${comments.length})`}
+        </span>
+        <span className="sm:hidden">
+          {copied ? "Copied" : `Copy (${comments.length})`}
+        </span>
       </button>
 
       <Divider className="hidden sm:block" />
@@ -303,7 +307,7 @@ function SegmentedControl<T extends string>({
             }`}
           >
             <span aria-hidden>{o.icon}</span>
-            <span>{o.label}</span>
+            <span className="hidden sm:inline">{o.label}</span>
           </button>
         );
       })}

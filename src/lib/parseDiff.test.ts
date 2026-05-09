@@ -286,4 +286,21 @@ index 111..222 100644
       ["context", 13, 14],
     ]);
   });
+
+  it("handles git-quoted paths in ---/+++ headers (paths with spaces)", () => {
+    // git wraps paths in double-quotes when they contain spaces or non-ASCII.
+    const diff = `diff --git "a/has space.ts" "b/has space.ts"
+index 111..222 100644
+--- "a/has space.ts"
++++ "b/has space.ts"
+@@ -1 +1 @@
+-old
++new
+`;
+    const files = parseDiff(diff);
+    expect(files).toHaveLength(1);
+    expect(files[0].path).toBe("has space.ts");
+    expect(files[0].oldPath).toBe("has space.ts");
+    expect(files[0].newPath).toBe("has space.ts");
+  });
 });
