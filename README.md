@@ -24,26 +24,38 @@ Point it at a git repository, pick any combination of recent commits + uncommitt
 
 ## Install + run
 
-### Option A — single binary (recommended)
+### Option A — Homebrew (macOS / Linux, recommended)
 
-Download the binary for your OS from the [Releases](https://github.com/suhothayan/iReview/releases) page (once v0.1 is published) and run it on any git repository:
+```bash
+brew tap suhothayan/tap
+brew install ireview
+```
+
+Then, from any subdirectory of a git repo:
+
+```bash
+ireview
+```
+
+It walks up looking for `.git`, listens on port `3737` by default, and opens your browser automatically. Use `--port N` to override, or pass an explicit path: `ireview /path/to/your/repo`.
+
+### Option B — single binary
+
+Download the binary for your OS from the [Releases](https://github.com/suhothayan/iReview/releases) page and run it directly:
 
 ```bash
 ./ireview /path/to/your/repo
 ```
 
-Or, from inside any subdirectory of a repo:
+On macOS, Gatekeeper will block direct downloads — either install via Homebrew (above) or remove the quarantine flag manually:
 
 ```bash
-cd /your/repo/some/subdir
-ireview
+xattr -d com.apple.quarantine ./ireview-macos-arm64
 ```
-
-It walks up looking for `.git`, listens on port `3737` by default, and opens your browser automatically. Use `--port N` to override.
 
 **Requires:** `git` installed on your system.
 
-### Option B — from source
+### Option C — from source
 
 ```bash
 git clone https://github.com/suhothayan/iReview
@@ -94,9 +106,8 @@ Comment types: MUST FIX (must be addressed), SUGGESTION (improvements), NOTE (ob
 1. [MUST FIX] - `src/db.ts:42-50` - this transaction can deadlock under contention
 2. [SUGGESTION] - `src/auth.ts:12` - add a more specific error message
 3. [SUGGESTION] - `src/auth.ts:50` - prefer Result<> over throwing here
-
    the calling layer would rather branch on a typed result than wrap a try/catch
-3. [NOTE] - `src/auth.ts` - consider extracting this into a dedicated module
+4. [NOTE] - `src/auth.ts` - consider extracting this into a dedicated module
 ```
 
 - Numbered for easy reference (you can ask the agent: "address comment #2")
