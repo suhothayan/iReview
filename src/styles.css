@@ -106,6 +106,7 @@ body {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   font-size: 12.5px;
   line-height: 1.5;
+  position: relative;
 }
 @media (min-width: 768px) {
   .diff-line {
@@ -143,10 +144,23 @@ body {
 .diff-line.context { background: transparent; }
 
 .diff-line.selectable:hover { outline: 1px solid rgb(var(--bg-line)); cursor: pointer; }
-.diff-line.has-comment { box-shadow: inset 4px 0 0 rgb(var(--accent)); }
+/* The accent bar uses an absolute pseudo-element instead of an inset
+   box-shadow so it paints on top of the per-row gutter background
+   (otherwise the darker add/del gutter colour hides it). */
+.diff-line.has-comment::before,
+.diff-line.in-range::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: rgb(var(--accent));
+  pointer-events: none;
+  z-index: 1;
+}
 .diff-line.in-range {
   background: rgb(var(--accent) / 0.18);
-  box-shadow: inset 4px 0 0 rgb(var(--accent));
 }
 .diff-line.in-range .gutter {
   background: rgb(var(--accent) / 0.25);
