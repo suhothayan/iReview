@@ -126,8 +126,14 @@ body {
 }
 .diff-line .content {
   padding: 0 12px;
-  white-space: pre;
-  overflow-x: auto;
+  /* Wrap long lines instead of giving each its own horizontal scrollbar.
+     `pre-wrap` preserves leading whitespace + tabs (so indentation reads
+     correctly) while letting the line break at word boundaries when it
+     overflows the available width. Tab and word-level break-all together
+     handle code with very long unbroken tokens (URLs, base64, etc.). */
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   color: rgb(var(--fg));
 }
 .diff-line.add { background: rgb(var(--diff-add)); }

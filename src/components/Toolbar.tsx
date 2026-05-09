@@ -5,6 +5,20 @@ import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { ConfirmModal } from "./ConfirmModal";
 import { chipTone, type SelectionKind } from "../lib/tones";
+import {
+  ArrowLeft,
+  Copy,
+  FileText,
+  GitBranch,
+  List,
+  Menu,
+  Moon,
+  Plus,
+  Power,
+  RotateCw,
+  Sun,
+  X,
+} from "lucide-react";
 
 interface Props {
   repoBranch: string | null;
@@ -61,11 +75,11 @@ export function Toolbar({
       {!showCommitPicker && files.length > 0 && (
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="md:hidden text-sm w-8 h-7 rounded border border-bg-line bg-bg-line hover:bg-bg-elev text-fg inline-flex items-center justify-center"
+          className="md:hidden w-8 h-7 rounded border border-bg-line bg-bg-line hover:bg-bg-elev text-fg inline-flex items-center justify-center"
           title="Show file list"
           aria-label="Toggle file list"
         >
-          ☰
+          <Menu className="w-4 h-4" />
         </button>
       )}
 
@@ -82,10 +96,11 @@ export function Toolbar({
             </span>
             {repoBranch && (
               <span
-                className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-bg-line text-fg font-mono whitespace-nowrap max-w-[14rem] truncate"
+                className="hidden md:inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded bg-bg-line text-fg font-mono whitespace-nowrap max-w-[14rem]"
                 title={`Currently checked-out branch: ${repoBranch}`}
               >
-                ⎇ {repoBranch}
+                <GitBranch className="w-3 h-3 shrink-0" aria-hidden />
+                <span className="truncate">{repoBranch}</span>
               </span>
             )}
             {repoHead && (
@@ -127,7 +142,11 @@ export function Toolbar({
         }`}
         title="Pick which commits / staged / unstaged changes to review"
       >
-        <span aria-hidden>{showCommitPicker ? "←" : "⊕"}</span>
+        {showCommitPicker ? (
+          <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
+        ) : (
+          <Plus className="w-3.5 h-3.5" aria-hidden />
+        )}
         <span className="hidden sm:inline">
           {showCommitPicker ? "Back to diff" : "Pick changes"}
         </span>
@@ -146,20 +165,20 @@ export function Toolbar({
               {
                 value: "single",
                 label: "Single",
-                icon: "▤",
+                icon: <FileText className="w-3.5 h-3.5" aria-hidden />,
                 title: "One file at a time, with Next/Prev",
               },
               {
                 value: "scroll",
                 label: "Scroll",
-                icon: "≡",
+                icon: <List className="w-3.5 h-3.5" aria-hidden />,
                 title: "All files in one scroll (GitHub-style)",
               },
             ]}
           />
 
           <IconButton
-            icon="↻"
+            icon={<RotateCw className="w-3.5 h-3.5" aria-hidden />}
             title="Reload diff from disk"
             onClick={onReload}
             className="hidden sm:inline-flex"
@@ -181,9 +200,7 @@ export function Toolbar({
             : "Copy structured Markdown review to clipboard"
         }
       >
-        <span aria-hidden className="text-base leading-none -mt-0.5">
-          ⎘
-        </span>
+        <Copy className="w-3.5 h-3.5" aria-hidden />
         <span className="hidden sm:inline">
           {copied ? "Copied!" : `Copy review (${comments.length})`}
         </span>
@@ -197,7 +214,7 @@ export function Toolbar({
       {/* Group: settings */}
       <ThemeToggle />
       <IconButton
-        icon="✕"
+        icon={<X className="w-3.5 h-3.5" aria-hidden />}
         title="Clear comments, reviewed flags, and selection"
         onClick={() =>
           setConfirm({
@@ -216,7 +233,7 @@ export function Toolbar({
         className="hidden sm:inline-flex"
       />
       <IconButton
-        icon="⏻"
+        icon={<Power className="w-3.5 h-3.5" aria-hidden />}
         title="Stop iReview server (close the app)"
         onClick={() =>
           setConfirm({
@@ -263,7 +280,7 @@ function IconButton({
   danger,
   className = "",
 }: {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   onClick: () => void;
   danger?: boolean;
@@ -273,7 +290,7 @@ function IconButton({
     <button
       onClick={onClick}
       title={title}
-      className={`text-sm w-8 h-7 rounded border border-bg-line bg-bg-line hover:bg-bg-elev inline-flex items-center justify-center ${
+      className={`w-8 h-7 rounded border border-bg-line bg-bg-line hover:bg-bg-elev inline-flex items-center justify-center ${
         danger ? "text-fg-muted hover:text-red-500" : "text-fg"
       } ${className}`}
     >
@@ -289,7 +306,12 @@ function SegmentedControl<T extends string>({
 }: {
   value: T;
   onChange: (v: T) => void;
-  options: { value: T; label: string; icon: string; title: string }[];
+  options: {
+    value: T;
+    label: string;
+    icon: React.ReactNode;
+    title: string;
+  }[];
 }) {
   return (
     <div className="flex border border-bg-line rounded overflow-hidden text-xs">
@@ -306,7 +328,7 @@ function SegmentedControl<T extends string>({
                 : "bg-bg-line text-fg hover:bg-bg-elev"
             }`}
           >
-            <span aria-hidden>{o.icon}</span>
+            {o.icon}
             <span className="hidden sm:inline">{o.label}</span>
           </button>
         );
@@ -383,10 +405,15 @@ function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-      className="text-sm w-8 h-7 rounded border border-bg-line bg-bg-line hover:bg-bg-elev text-fg inline-flex items-center justify-center"
+      className="w-8 h-7 rounded border border-bg-line bg-bg-line hover:bg-bg-elev text-fg inline-flex items-center justify-center"
       title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
     >
-      {theme === "dark" ? "☀" : "☾"}
+      {theme === "dark" ? (
+        <Sun className="w-3.5 h-3.5" aria-hidden />
+      ) : (
+        <Moon className="w-3.5 h-3.5" aria-hidden />
+      )}
     </button>
   );
 }

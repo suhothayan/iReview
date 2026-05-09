@@ -1,3 +1,5 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
+
 // Top + bottom Prev/Next navigator shown in single-file view.
 export function NavBar({
   position,
@@ -23,7 +25,7 @@ export function NavBar({
         className="text-xs px-3 py-1 rounded border border-fg-muted/40 bg-transparent text-fg-muted hover:text-fg hover:border-fg-muted hover:bg-bg inline-flex items-center gap-1"
         title="Previous file"
       >
-        <span aria-hidden>←</span>
+        <ArrowLeft className="w-3.5 h-3.5" aria-hidden />
         <span className="hidden sm:inline">Previous</span>
       </button>
       <div className="text-xs text-fg-muted">
@@ -41,7 +43,7 @@ export function NavBar({
         title="Next file"
       >
         <span className="hidden sm:inline">Next</span>
-        <span aria-hidden>→</span>
+        <ArrowRight className="w-3.5 h-3.5" aria-hidden />
       </button>
     </div>
   );

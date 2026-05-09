@@ -7,6 +7,7 @@ import {
 } from "../lib/api";
 import { useStore } from "../lib/store";
 import { badgeTone, type SelectionKind } from "../lib/tones";
+import { RotateCw } from "lucide-react";
 
 type Row =
   | { kind: "unstaged" }
@@ -223,12 +224,10 @@ function Actions({
         className="text-xs px-2 py-1 rounded border border-bg-line text-fg-muted hover:text-fg hover:bg-bg-elev disabled:opacity-50 inline-flex items-center gap-1"
         title="Re-pull commits and uncommitted state from disk"
       >
-        <span
+        <RotateCw
+          className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`}
           aria-hidden
-          className={refreshing ? "inline-block animate-spin" : ""}
-        >
-          ↻
-        </span>
+        />
         <span>{refreshing ? "Refreshing…" : "Refresh"}</span>
       </button>
       <button
