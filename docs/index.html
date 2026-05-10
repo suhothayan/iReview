@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>iReview — browser-based local diff review for AI-generated changes</title>
+    <meta
+      name="description"
+      content="Point iReview at a git repo, pick any combination of recent commits + uncommitted work, review the diff like a GitHub PR, and copy a structured Markdown summary to paste back to your AI agent."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="https://raw.githubusercontent.com/suhothayan/iReview/main/public/favicon.svg"
+    />
+    <meta property="og:title" content="iReview" />
+    <meta
+      property="og:description"
+      content="Browser-based local diff review for AI-generated changes."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://suhothayan.github.io/iReview/" />
+    <style>
+      :root {
+        --bg: 255 255 255;
+        --bg-elev: 243 246 249;
+        --bg-line: 208 215 222;
+        --bg-panel: 252 253 254;
+        --fg: 31 35 40;
+        --fg-muted: 87 96 106;
+        --accent: 9 105 218;
+        --accent-on: 255 255 255;
+        --diff-add: 218 251 225;
+        --diff-del: 255 235 233;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: 13 17 23;
+          --bg-elev: 22 27 34;
+          --bg-line: 33 38 45;
+          --bg-panel: 28 33 41;
+          --fg: 230 237 243;
+          --fg-muted: 173 181 189;
+          --accent: 88 166 255;
+          --accent-on: 13 17 23;
+          --diff-add: 15 47 29;
+          --diff-del: 58 18 23;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        background: rgb(var(--bg));
+        color: rgb(var(--fg));
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: rgb(var(--accent));
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      code,
+      pre {
+        font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+          monospace;
+        font-size: 0.92em;
+      }
+
+      header.site {
+        border-bottom: 1px solid rgb(var(--bg-line));
+        background: rgb(var(--bg-elev));
+      }
+      header.site .inner {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 14px 24px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      header.site .logo {
+        font-weight: 600;
+        font-size: 18px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      header.site .logo img {
+        width: 22px;
+        height: 22px;
+      }
+      header.site nav {
+        margin-left: auto;
+        display: flex;
+        gap: 18px;
+        font-size: 14px;
+      }
+      header.site nav a {
+        color: rgb(var(--fg-muted));
+      }
+      header.site nav a:hover {
+        color: rgb(var(--fg));
+        text-decoration: none;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      section.hero {
+        text-align: center;
+        padding: 72px 0 48px;
+      }
+      section.hero h1 {
+        font-size: clamp(36px, 6vw, 56px);
+        line-height: 1.1;
+        margin: 0 0 16px;
+        letter-spacing: -0.02em;
+      }
+      section.hero p.tagline {
+        font-size: clamp(17px, 2vw, 20px);
+        color: rgb(var(--fg-muted));
+        max-width: 680px;
+        margin: 0 auto 28px;
+      }
+      section.hero .cta {
+        display: inline-flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 18px;
+        border-radius: 6px;
+        font-weight: 500;
+        font-size: 14px;
+      }
+      .btn-primary {
+        background: rgb(var(--accent));
+        color: rgb(var(--accent-on));
+      }
+      .btn-primary:hover {
+        opacity: 0.9;
+        text-decoration: none;
+      }
+      .btn-ghost {
+        border: 1px solid rgb(var(--bg-line));
+        color: rgb(var(--fg));
+      }
+      .btn-ghost:hover {
+        background: rgb(var(--bg-elev));
+        text-decoration: none;
+      }
+
+      .demo {
+        margin: 16px auto 80px;
+        border: 1px solid rgb(var(--bg-line));
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgb(0 0 0 / 0.08);
+      }
+      @media (prefers-color-scheme: dark) {
+        .demo {
+          box-shadow: 0 8px 32px rgb(0 0 0 / 0.4);
+        }
+      }
+      .demo img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      h2 {
+        font-size: 28px;
+        letter-spacing: -0.01em;
+        margin: 0 0 24px;
+      }
+
+      section.install {
+        padding: 24px 0 64px;
+      }
+      .install-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+      @media (min-width: 720px) {
+        .install-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+      }
+      .install-card {
+        background: rgb(var(--bg-panel));
+        border: 1px solid rgb(var(--bg-line));
+        border-radius: 8px;
+        padding: 20px;
+      }
+      .install-card h3 {
+        font-size: 15px;
+        margin: 0 0 4px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .install-card h3 .badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 999px;
+        background: rgb(var(--accent));
+        color: rgb(var(--accent-on));
+        letter-spacing: 0.04em;
+      }
+      .install-card .sub {
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+        margin: 0 0 14px;
+      }
+      pre.cmd {
+        background: rgb(var(--bg-elev));
+        border: 1px solid rgb(var(--bg-line));
+        border-radius: 6px;
+        padding: 12px;
+        margin: 0;
+        font-size: 13px;
+        overflow-x: auto;
+        white-space: pre;
+        color: rgb(var(--fg));
+      }
+
+      section.features {
+        padding: 24px 0 64px;
+        border-top: 1px solid rgb(var(--bg-line));
+      }
+      .features-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      @media (min-width: 720px) {
+        .features-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 28px 40px;
+        }
+      }
+      .feature h3 {
+        font-size: 15px;
+        margin: 0 0 4px;
+      }
+      .feature p {
+        margin: 0;
+        font-size: 14px;
+        color: rgb(var(--fg-muted));
+      }
+
+      section.output {
+        padding: 24px 0 64px;
+        border-top: 1px solid rgb(var(--bg-line));
+      }
+      section.output p {
+        color: rgb(var(--fg-muted));
+        max-width: 720px;
+      }
+      pre.output-block {
+        background: rgb(var(--bg-panel));
+        border: 1px solid rgb(var(--bg-line));
+        border-radius: 8px;
+        padding: 20px;
+        font-size: 13px;
+        line-height: 1.6;
+        overflow-x: auto;
+        white-space: pre;
+      }
+
+      footer.site {
+        border-top: 1px solid rgb(var(--bg-line));
+        padding: 24px;
+        text-align: center;
+        font-size: 13px;
+        color: rgb(var(--fg-muted));
+      }
+      footer.site a {
+        color: rgb(var(--fg-muted));
+      }
+      footer.site a:hover {
+        color: rgb(var(--fg));
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site">
+      <div class="inner">
+        <span class="logo">
+          <img
+            src="https://raw.githubusercontent.com/suhothayan/iReview/main/public/favicon.svg"
+            alt=""
+          />
+          iReview
+        </span>
+        <nav>
+          <a href="#install">Install</a>
+          <a href="#features">Features</a>
+          <a href="https://github.com/suhothayan/iReview">GitHub</a>
+          <a href="https://github.com/suhothayan/iReview/releases">Releases</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <h1>Review your AI's diffs in a browser.</h1>
+        <p class="tagline">
+          Point iReview at any local git repository, pick any combination of
+          recent commits + uncommitted work, review the diff like a GitHub PR,
+          and copy a structured Markdown summary back to your coding agent.
+        </p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#install">Install</a>
+          <a class="btn btn-ghost" href="https://github.com/suhothayan/iReview"
+            >View on GitHub</a
+          >
+        </div>
+      </section>
+
+      <div class="demo">
+        <img
+          src="./demo.gif"
+          alt="iReview demo: picking commits, leaving comments, copying review"
+          loading="lazy"
+        />
+      </div>
+
+      <section class="install" id="install">
+        <h2>Install</h2>
+        <div class="install-grid">
+          <div class="install-card">
+            <h3>Homebrew <span class="badge">RECOMMENDED</span></h3>
+            <p class="sub">macOS &amp; Linux — skips Gatekeeper friction.</p>
+            <pre class="cmd">brew tap suhothayan/tap
+brew install ireview
+ireview</pre>
+          </div>
+          <div class="install-card">
+            <h3>Binary</h3>
+            <p class="sub">
+              Download from
+              <a href="https://github.com/suhothayan/iReview/releases"
+                >Releases</a
+              >, then run.
+            </p>
+            <pre class="cmd">./ireview /path/to/repo</pre>
+          </div>
+          <div class="install-card">
+            <h3>From source</h3>
+            <p class="sub">Vite + Express, hot reload.</p>
+            <pre class="cmd">git clone https://github.com/suhothayan/iReview
+cd iReview &amp;&amp; npm install
+IREVIEW_REPO=/path npm run dev</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="features" id="features">
+        <h2>Features</h2>
+        <div class="features-grid">
+          <div class="feature">
+            <h3>Pick any selection</h3>
+            <p>
+              Recent commits + staged + unstaged in one picker — combined into a
+              single diff. Pick A and C, B comes along if it sits between.
+            </p>
+          </div>
+          <div class="feature">
+            <h3>GitHub-style diff viewer</h3>
+            <p>
+              Unified diff with hunk headers, file tree sidebar, sticky per-file
+              headers, comment-count badges, light + dark themes.
+            </p>
+          </div>
+          <div class="feature">
+            <h3>Click to comment</h3>
+            <p>
+              Click a line to leave a typed comment (must-fix / suggestion /
+              note). Shift-click another line on the same side to extend a
+              multi-line range.
+            </p>
+          </div>
+          <div class="feature">
+            <h3>Mark files reviewed</h3>
+            <p>
+              Per-file checkboxes plus tri-state cascading folder ticks — mark a
+              whole directory reviewed in one click.
+            </p>
+          </div>
+          <div class="feature">
+            <h3>Two view modes</h3>
+            <p>
+              Single-file with Prev/Next, or scroll-all GitHub-style with
+              sidebar that follows scroll position.
+            </p>
+          </div>
+          <div class="feature">
+            <h3>Copy review</h3>
+            <p>
+              Numbered, structured Markdown lands on your clipboard with one
+              click. Paste into your AI agent's chat to apply fixes.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="output">
+        <h2>Output format</h2>
+        <p>
+          The exported review is structured Markdown optimised for pasting into
+          AI agent chats — numbered for easy reference (you can ask the agent to
+          "address comment #2").
+        </p>
+        <pre
+          class="output-block"
+        >I reviewed your code and have the following comments. Please address them.
+
+Comment types: MUST FIX (must be addressed), SUGGESTION (improvements), NOTE (observations)
+
+1. [MUST FIX] - `src/db.ts:42-50` - this transaction can deadlock under contention
+2. [SUGGESTION] - `src/auth.ts:12` - add a more specific error message
+3. [SUGGESTION] - `src/auth.ts:50` - prefer Result&lt;&gt; over throwing here
+   the calling layer would rather branch on a typed result than wrap a try/catch
+4. [NOTE] - `src/auth.ts` - consider extracting this into a dedicated module</pre>
+      </section>
+    </main>
+
+    <footer class="site">
+      iReview ·
+      <a href="https://github.com/suhothayan/iReview">GitHub</a> ·
+      <a href="https://github.com/suhothayan/iReview/releases">Releases</a> ·
+      <a
+        href="https://github.com/suhothayan/iReview/blob/main/SECURITY.md"
+        >Security</a
+      >
+      · MIT
+    </footer>
+  </body>
+</html>
