@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://suhothayan.github.io/iReview/sitemap.xml
