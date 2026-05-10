@@ -85,10 +85,16 @@ export function Toolbar({
 
       {/* Group: identity */}
       <div className="flex items-center gap-2 min-w-0">
-        <div className="flex items-center gap-1.5 shrink-0">
+        <a
+          href="https://suhothayan.github.io/iReview/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 shrink-0 hover:opacity-80 transition-opacity"
+          title="Open iReview homepage in a new tab"
+        >
           <Logo />
           <span className="font-semibold text-accent">iReview</span>
-        </div>
+        </a>
         {repoName && (
           <div className="flex items-center gap-2 min-w-0" title={repoPath}>
             <span className="text-sm font-medium text-fg truncate max-w-[10rem] sm:max-w-none">
