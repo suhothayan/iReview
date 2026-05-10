@@ -963,6 +963,10 @@ Comment types: MUST FIX (must be addressed), SUGGESTION (improvements), NOTE (ob
       <p class="footer-links">
         <a href="https://github.com/suhothayan/iReview">GitHub</a> ·
         <a href="https://github.com/suhothayan/iReview/releases">Releases</a> ·
+        <a href="https://github.com/suhothayan/iReview/issues/new"
+          >Report an issue</a
+        >
+        ·
         <a href="https://github.com/suhothayan/iReview/blob/main/SECURITY.md"
           >Security</a
         >
@@ -977,6 +981,13 @@ Comment types: MUST FIX (must be addressed), SUGGESTION (improvements), NOTE (ob
 
     <script async defer src="https://buttons.github.io/buttons.js"></script>
     <script>
+      // Open all external links in a new tab (in-page anchors and the ./ logo
+       // stay in the same tab).
+      document.querySelectorAll('a[href^="http"]').forEach((a) => {
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+      });
+
       const copyTimers = new WeakMap();
       document.querySelectorAll("[data-copy]").forEach((btn) => {
         const original = btn.textContent;
