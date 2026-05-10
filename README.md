@@ -1,8 +1,16 @@
 # iReview
 
-Browser-based local diff review for AI-generated changes.
+**AI codes. I review.** — browser-based local diff review for AI-generated code.
 
-Point it at a git repository, pick any combination of recent commits + uncommitted work, review the resulting diff like a GitHub pull request, leave typed comments (must-fix / suggestion / note), and click **Copy review** to put a structured Markdown summary on your clipboard — ready to paste back to your coding agent.
+Point it at a git repo, pick any combination of recent commits + uncommitted work, and review the resulting diff like a GitHub pull request. Leave typed comments (must-fix / suggestion / note) and click **Copy review** to paste a structured Markdown summary back to your coding agent — Claude Code, Cursor, Copilot, anything.
+
+Website: <https://suhothayan.github.io/iReview/>
+
+## Why iReview
+
+- **vs `git diff`** — you can actually leave typed comments instead of just reading.
+- **vs the agent self-reviewing** — don't grade your own homework. A human catches the deadlocks, races, and dumb mistakes the agent confidently shipped.
+- **vs a GitHub PR** — works pre-commit on staged + unstaged + recent commits, all locally, no push needed.
 
 ## Demo
 
@@ -10,7 +18,7 @@ Point it at a git repository, pick any combination of recent commits + uncommitt
 
 ## Install + run
 
-### Option A — Homebrew (macOS / Linux, recommended)
+### Homebrew (macOS / Linux)
 
 ```bash
 brew tap suhothayan/tap
@@ -25,7 +33,18 @@ ireview
 
 It walks up looking for `.git`, listens on port `3737` by default, and opens your browser automatically. Use `--port N` to override, or pass an explicit path: `ireview /path/to/your/repo`.
 
-### Option B — single binary
+### Windows (PowerShell)
+
+```powershell
+irm https://suhothayan.github.io/iReview/install.ps1 | iex
+```
+
+Downloads the latest release exe to `%USERPROFILE%\.ireview\` and adds it to your user `PATH`. Open a new terminal afterwards, then `ireview` works from any git repo. You can [view the install script](https://raw.githubusercontent.com/suhothayan/iReview/main/docs/install.ps1) before piping.
+
+<details>
+<summary>Other ways to install</summary>
+
+#### Single binary
 
 Download the binary for your OS from the [Releases](https://github.com/suhothayan/iReview/releases) page and run it directly:
 
@@ -39,9 +58,7 @@ On macOS, Gatekeeper will block direct downloads — either install via Homebrew
 xattr -d com.apple.quarantine ./ireview-macos-arm64
 ```
 
-**Requires:** `git` installed on your system.
-
-### Option C — from source
+#### From source
 
 ```bash
 git clone https://github.com/suhothayan/iReview
@@ -52,18 +69,21 @@ IREVIEW_REPO=/path/to/your/repo npm run dev
 
 Vite dev server on `:5173`, Express API on `:3737`.
 
+</details>
+
+**Requires:** `git` installed on your system.
+
 ## Features
 
 - **Pick any selection.** Recent commits + uncommitted (staged / unstaged) all in one picker — combined into a single diff.
 - **GitHub-style diff viewer.** Unified diff with hunk headers, file tree sidebar, sticky per-file headers, comment count badges.
-- **Click to comment.** Click a line to leave a typed comment (must-fix / suggestion / note). **Shift-click** another line on the same side to extend a multi-line range. File-level and review-level comments too.
-- **Mark files reviewed.** Per-file checkbox, plus tri-state cascading checkboxes on directories — tick a folder to mark every file inside as reviewed.
-- **Two view modes.** **Single** (one file at a time, with Prev / Next nav) or **Scroll all** (continuous scroll, sidebar highlight follows scroll position).
-- **Copy review.** Numbered, structured Markdown lands on your clipboard with one click. Paste into your AI agent's chat to apply fixes.
-- **Light + dark theme.** CSS variables, theme toggle, honours `prefers-color-scheme` on first load, persists choice.
-- **Mobile / tablet friendly.** Toolbar wraps; sidebar becomes a drawer below `md`; nav labels collapse to icons.
-- **Per-repo session persistence.** Comments and reviewed flags survive page reloads, keyed by repo path.
-- **Quit from the browser.** No terminal needed — click the ⏻ in the toolbar to stop the server cleanly.
+- **Click to comment.** Click a line for a typed comment (must-fix / suggestion / note). **Shift-click** another line on the same side to extend a multi-line range. File-level and review-level comments too.
+- **Mark files reviewed.** Per-file checkbox plus tri-state cascading checkboxes on directories.
+- **Two view modes.** **Single** (one file at a time, with Prev / Next nav) or **Scroll all** (continuous scroll, sidebar follows scroll position).
+- **Copy review.** Numbered, structured Markdown lands on your clipboard. Paste into your AI agent's chat to apply fixes.
+- **Light + dark theme.** Honours `prefers-color-scheme` on first load, persists choice.
+- **Comments survive reloads.** Per-repo, no signup, no cloud.
+- **Quit from the browser.** Click the ⏻ in the toolbar to stop the server cleanly.
 
 ## Command-line options
 
@@ -102,53 +122,40 @@ Comment types: MUST FIX (must be addressed), SUGGESTION (improvements), NOTE (ob
 - Multi-paragraph bodies indent under the header so they stay inside the list item
 - Comments sorted by file (review-level first), then by line
 
-## Building binaries yourself
+## FAQ
 
-```bash
-# Your platform (auto-detects current OS/arch)
-npm run build:binary
+**Does iReview send my code anywhere?**
+No. The diff stays on your machine. The server runs on `127.0.0.1`, talks only to your local `git`, and there's no telemetry or analytics. See [server/index.js](./server/index.js).
 
-# Specific targets
-npm run build:binary:macos-arm64
-npm run build:binary:macos-x64
-npm run build:binary:linux-x64
-npm run build:binary:windows-x64
+**Is iReview free? Will it stay free?**
+Yes. MIT licensed, open source, no paid tier, no signup.
 
-# All four at once
-npm run build:binary:all
-```
+**Why not just use my agent's built-in review?**
+Letting the agent grade its own homework tends to miss the issues you'd catch. iReview keeps a human in the loop without leaving the terminal flow.
 
-Binaries are ~60 MB each — they bundle Bun's JS runtime + the built React frontend (embedded as base64) + the Express server. **Build prerequisite:** [Bun](https://bun.sh/) on your `$PATH` (or at `~/.bun/bin/bun`). Runtime dependency: `git`.
+**Does it work on Windows?**
+Yes — install via the PowerShell one-liner above.
+
+**Can I use it for non-AI code reviews?**
+Yes. iReview is just a local diff reviewer — pre-commit reviews, self-reviews, sanity checks all work fine.
+
+## What's new in 0.2.0
+
+- **Multi-line range comments** now render once at the range anchor (was duplicating once per covered line). The accent indicator on `+` / `-` lines was also fixed — it had been hidden by the per-row gutter background.
+- **Toolbar logo links to the website.** Clicking *iReview* in the top-left opens https://suhothayan.github.io/iReview/ in a new tab.
+- **Windows installer.** One-line PowerShell script (`irm … | iex`) downloads the latest release and adds it to your user `PATH`.
+- **GitHub Pages site.** Public landing page at https://suhothayan.github.io/iReview/.
+- **`npm run dev` actually works.** The Vite proxy was pointed at the wrong port since v0.1.0.
 
 ## Security
 
 iReview binds to `127.0.0.1` only and authenticates the shutdown endpoint with a per-boot token. See [SECURITY.md](./SECURITY.md) to report a vulnerability.
 
-## Architecture
-
-- `server/index.js` — Express + cors. Shells out to `git` via `execFile` (no shell injection surface). Endpoints: `/api/repo`, `/api/diff` (Selection-based), `/api/commits`, `/api/shutdown` (token-protected). Falls back to embedded assets when run as a compiled binary.
-- `src/lib/parseDiff.ts` — git unified diff → structured `DiffFile[]`. Tested against fixture diffs (modify / add / delete / rename / multi-hunk / mode-only / binary / quoted paths / no-newline-at-EOF).
-- `src/lib/store.ts` — Zustand store. Comments + reviewed flags persisted per repo via explicit `loadSession` / `saveSession`.
-- `src/lib/exportMarkdown.ts` — comments → clipboard Markdown.
-- `src/lib/tones.ts` — shared color palette for selection chips and badges.
-- `src/components/` — `Toolbar`, `FileList` (tree), `DiffView`, `CommentForm`, `CommitPicker`, `ConfirmModal`, `Logo`, screens.
-- `src/hooks/` — `useBootRepo`, `useScrollSpy`, `useFileNavigation`.
-- `scripts/embed-assets.js` — reads `dist/` after `vite build` and bakes it into `server/embedded-assets.js` for the binary.
-
-## Project scripts
-
-```bash
-npm run dev               # Vite + Express, hot reload
-npm run build             # build the React app to dist/
-npm run start             # serve the built app from Express
-npm run typecheck         # tsc --noEmit
-npm run test              # vitest run
-npm run build:binary      # build the standalone executable
-```
-
 ## Contributing
 
-PRs welcome. Run `npm run typecheck` and `npm test` before submitting; both should be green.
+PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) for architecture notes, build instructions, and the project's npm scripts.
+
+Run `npm run typecheck` and `npm test` before submitting; both should be green.
 
 ## License
 
