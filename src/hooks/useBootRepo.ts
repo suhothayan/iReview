@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   fetchRepo,
   NoRepoError,
@@ -24,6 +24,41 @@ export function useBootRepo() {
   const [bootDone, setBootDone] = useState(false);
   const [noRepo, setNoRepo] = useState<NoRepoInfo | null>(null);
   const [meta, setMeta] = useState<BootMeta>({ branch: null, head: null });
+
+  // Re-pull /api/repo and reconcile staged/unstaged flags into the current
+  // selection. Used by the Toolbar Refresh button so that staging a new file
+  // (or removing all unstaged work) is picked up without a full page reload.
+  // The user's picked commits are preserved.
+  const refreshRepo = useCallback(async () => {
+    try {
+      const info = await fetchRepo();
+      setNoRepo(null);
+      setRepo({
+        repoPath: info.repo,
+        hasStaged: info.hasStaged,
+        hasUnstaged: info.hasUnstaged,
+      });
+      setMeta({ branch: info.branch, head: info.head });
+      const current = useStore.getState().selection;
+      if (
+        current.staged !== info.hasStaged ||
+        current.unstaged !== info.hasUnstaged
+      ) {
+        setSelection({
+          shas: current.shas,
+          staged: info.hasStaged,
+          unstaged: info.hasUnstaged,
+        });
+      }
+    } catch (err: unknown) {
+      if (err instanceof NoRepoError) {
+        setNoRepo(err.info);
+        setError(null);
+      } else {
+        setError(errorMessage(err));
+      }
+    }
+  }, [setRepo, setSelection, setError]);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,5 +99,5 @@ export function useBootRepo() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return { bootDone, noRepo, meta };
+  return { bootDone, noRepo, meta, refreshRepo };
 }

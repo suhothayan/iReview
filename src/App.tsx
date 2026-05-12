@@ -32,7 +32,7 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [quitted, setQuitted] = useState(false);
 
-  const { bootDone, noRepo, meta } = useBootRepo();
+  const { bootDone, noRepo, meta, refreshRepo } = useBootRepo();
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -46,6 +46,24 @@ export default function App() {
       setLoading(false);
     }
   }, [selection, setLoading, setError, setFiles]);
+
+  // Toolbar Refresh button: re-pull repo state first (so newly staged/unstaged
+  // work gets included in selection), then re-fetch the diff. Browser refresh
+  // does this implicitly via useBootRepo; the in-app button needs to do it
+  // explicitly so users don't have to reload the page to see fresh state.
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await refreshRepo();
+      const text = await fetchDiff(useStore.getState().selection);
+      setFiles(parseDiff(text));
+    } catch (err: unknown) {
+      setError(errorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshRepo, setLoading, setError, setFiles]);
 
   // Reload diff whenever selection changes (after boot).
   useEffect(() => {
@@ -71,7 +89,7 @@ export default function App() {
       <Toolbar
         repoBranch={meta.branch}
         repoHead={meta.head}
-        onReload={reload}
+        onReload={refresh}
         onCopied={(count) =>
           setToast(
             `${count} comment${count === 1 ? "" : "s"} copied to clipboard — paste into your agent's chat to apply.`,
