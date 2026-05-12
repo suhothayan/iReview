@@ -39,10 +39,14 @@ export function useBootRepo() {
         });
         setMeta({ branch: info.branch, head: info.head });
         useStore.getState().hydrateSession(info.repo);
+        // Default to "watch all uncommitted work" — staged + unstaged both
+        // ticked even on a clean repo. The picker rows are always tickable
+        // now, so this just removes the friction of having to pre-tick
+        // unstaged before editing files.
         setSelection({
           shas: [],
-          staged: info.hasStaged,
-          unstaged: info.hasUnstaged,
+          staged: true,
+          unstaged: true,
         });
         if (!info.hasStaged && !info.hasUnstaged) {
           setShowCommitPicker(true);
