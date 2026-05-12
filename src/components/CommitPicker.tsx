@@ -76,13 +76,40 @@ export function CommitPicker() {
     draft.unstaged !== selection.unstaged ||
     draft.shas.join(",") !== selection.shas.join(",");
 
-  function toggleSha(sha: string) {
-    setDraft((d) => ({
-      ...d,
-      shas: d.shas.includes(sha)
-        ? d.shas.filter((s) => s !== sha)
-        : [...d.shas, sha],
-    }));
+  // Unified range pick across the picker's full ordered list — unstaged
+  // (newest, top), staged, then commits[0..N].
+  //   - row 0 = unstaged, row 1 = staged, row 2..N+1 = commits[0..N-1]
+  //   - Click outside the current range → extend the nearer side to clicked.
+  //   - Click an endpoint of the range → shrink by one from that side.
+  //   - Click the sole anchor → deselect everything.
+  //   - Click an interior row of a multi-row range → reset to clicked.
+  function pickRow(rowIdx: number) {
+    if (!commits) return;
+    setDraft((d) => {
+      const selected = collectSelectedRows(d, commits);
+
+      if (selected.length === 0) {
+        return rowRangeToDraft(rowIdx, rowIdx, commits, d);
+      }
+
+      const minIdx = selected[0];
+      const maxIdx = selected[selected.length - 1];
+
+      if (rowIdx < minIdx) return rowRangeToDraft(rowIdx, maxIdx, commits, d);
+      if (rowIdx > maxIdx) return rowRangeToDraft(minIdx, rowIdx, commits, d);
+
+      if (selected.length === 1) {
+        return { ...d, unstaged: false, staged: false, shas: [] };
+      }
+      if (rowIdx === minIdx) {
+        return rowRangeToDraft(minIdx + 1, maxIdx, commits, d);
+      }
+      if (rowIdx === maxIdx) {
+        return rowRangeToDraft(minIdx, maxIdx - 1, commits, d);
+      }
+      // Interior click on a multi-row range → reset to clicked (calendar).
+      return rowRangeToDraft(rowIdx, rowIdx, commits, d);
+    });
   }
 
   // Build the unified row list: always show uncommitted entries first (even if empty,
@@ -118,12 +145,6 @@ export function CommitPicker() {
         <div className="flex-1" />
         {actions}
       </div>
-      <div className="px-4 py-2 text-xs text-fg-muted border-b border-bg-line bg-bg-elev/40">
-        Tick any combination below — uncommitted changes and prior commits get
-        combined into one diff. Picking commits A and C will also include B if it
-        sits between them.
-      </div>
-
       <div className="flex-1 overflow-y-auto">
         {error && (
           <div className="mx-3 my-2 px-3 py-2 rounded bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 text-xs border border-red-300 dark:border-red-800">
@@ -139,17 +160,14 @@ export function CommitPicker() {
               return (
                 <PickerRow
                   key="unstaged"
-                  checked={draft.unstaged && hasUnstaged}
-                  disabled={!hasUnstaged}
-                  onToggle={() =>
-                    setDraft({ ...draft, unstaged: !draft.unstaged })
-                  }
+                  checked={draft.unstaged}
+                  onToggle={() => pickRow(i)}
                   badge={<Badge kind="unstage">UNSTAGED</Badge>}
                   title="Unstaged changes"
                   subtitle={
                     hasUnstaged
                       ? "working tree vs index"
-                      : "Nothing here yet — make some local edits to enable this."
+                      : "no unstaged work yet — future edits will show up here"
                   }
                 />
               );
@@ -158,15 +176,14 @@ export function CommitPicker() {
               return (
                 <PickerRow
                   key="staged"
-                  checked={draft.staged && hasStaged}
-                  disabled={!hasStaged}
-                  onToggle={() => setDraft({ ...draft, staged: !draft.staged })}
+                  checked={draft.staged}
+                  onToggle={() => pickRow(i)}
                   badge={<Badge kind="stage">STAGED</Badge>}
                   title="Staged changes"
                   subtitle={
                     hasStaged
                       ? "index vs HEAD"
-                      : "Nothing staged yet — run git add to enable this, or pick a commit below."
+                      : "nothing staged yet — future git add work will show up here"
                   }
                 />
               );
@@ -176,7 +193,7 @@ export function CommitPicker() {
               <PickerRow
                 key={c.sha}
                 checked={draft.shas.includes(c.sha)}
-                onToggle={() => toggleSha(c.sha)}
+                onToggle={() => pickRow(i)}
                 badge={
                   <code className="text-xs text-fg-muted font-mono">
                     {c.shortSha}
@@ -259,24 +276,20 @@ function PickerRow({
   badge,
   title,
   subtitle,
-  disabled,
 }: {
   checked: boolean;
   onToggle: () => void;
   badge: React.ReactNode;
   title: string;
   subtitle: string;
-  disabled?: boolean;
 }) {
   return (
     <label
-      className={`relative flex items-center gap-3 pl-4 pr-4 py-2 border-b border-bg-line/50 transition-colors ${
-        disabled
-          ? "cursor-not-allowed opacity-50"
-          : "cursor-pointer hover:bg-bg-elev"
-      } ${checked && !disabled ? "is-selected" : ""}`}
+      className={`relative flex items-center gap-3 pl-4 pr-4 py-2 border-b border-bg-line/50 transition-colors cursor-pointer hover:bg-bg-elev ${
+        checked ? "is-selected" : ""
+      }`}
     >
-      {checked && !disabled && (
+      {checked && (
         <span
           aria-hidden
           className="absolute left-0 top-0 bottom-0 w-[2px] bg-accent"
@@ -285,7 +298,6 @@ function PickerRow({
       <input
         type="checkbox"
         checked={checked}
-        disabled={disabled}
         onChange={onToggle}
         className="accent-accent"
       />
@@ -293,11 +305,7 @@ function PickerRow({
       <div className="flex-1 min-w-0">
         <div
           className={`text-sm truncate ${
-            disabled
-              ? "text-fg-muted"
-              : checked
-                ? "text-fg font-medium"
-                : "text-fg"
+            checked ? "text-fg font-medium" : "text-fg"
           }`}
           title={title}
         >
@@ -307,6 +315,43 @@ function PickerRow({
       </div>
     </label>
   );
+}
+
+// Map the current draft selection onto its row indices in the unified picker
+// list (row 0 = unstaged, row 1 = staged, row 2..N+1 = commits[0..N-1]).
+function collectSelectedRows(
+  draft: { staged: boolean; unstaged: boolean; shas: string[] },
+  commits: CommitInfo[],
+): number[] {
+  const out: number[] = [];
+  if (draft.unstaged) out.push(0);
+  if (draft.staged) out.push(1);
+  for (const sha of draft.shas) {
+    const idx = commits.findIndex((c) => c.sha === sha);
+    if (idx >= 0) out.push(idx + 2);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+// Project a contiguous range of row indices back onto the {unstaged, staged,
+// shas} shape the rest of the app understands.
+function rowRangeToDraft(
+  start: number,
+  end: number,
+  commits: CommitInfo[],
+  baseDraft: { staged: boolean; unstaged: boolean; shas: string[] },
+): { staged: boolean; unstaged: boolean; shas: string[] } {
+  const lo = Math.min(start, end);
+  const hi = Math.max(start, end);
+  let unstaged = false;
+  let staged = false;
+  const shas: string[] = [];
+  for (let i = lo; i <= hi; i++) {
+    if (i === 0) unstaged = true;
+    else if (i === 1) staged = true;
+    else if (commits[i - 2]) shas.push(commits[i - 2].sha);
+  }
+  return { ...baseDraft, unstaged, staged, shas };
 }
 
 function Badge({
