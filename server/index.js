@@ -99,11 +99,20 @@ const REPO = REPO_EXPLICIT
 function resolveEndpointToRow(value, log) {
   if (value === "unstaged") return 0;
   if (value === "staged") return 1;
+  // Belt-and-suspenders: rev-parse is already invoked via execFile (no shell),
+  // but reject leading '-' (looks-like-flag), control chars, and ';' before
+  // letting any user-provided string near git.
+  if (!/^[A-Za-z0-9_./~^@:-]+$/.test(value) || value.startsWith("-")) {
+    console.error(
+      `Refusing --from/--to value ${JSON.stringify(value)}: contains characters not allowed in a git ref.`,
+    );
+    process.exit(2);
+  }
   let sha;
   try {
     sha = execFileSync(
       "git",
-      ["-C", REPO, "rev-parse", "--verify", `${value}^{commit}`],
+      ["-C", REPO, "rev-parse", "--verify", "--end-of-options", `${value}^{commit}`],
       { encoding: "utf8" },
     ).trim();
   } catch {
@@ -169,13 +178,12 @@ function buildPreset() {
 
 // Surfaced to the frontend so it skips the auto-default
 // {staged: true, unstaged: true} and opens with exactly what the caller
-// asked for. Consumed once — see `consumePreset()` below.
-let PRESET_SELECTION = buildPreset();
-function consumePreset() {
-  const out = PRESET_SELECTION;
-  PRESET_SELECTION = null;
-  return out;
-}
+// asked for. The frontend tracks "preset already applied" per browser
+// session (sessionStorage) so it isn't re-applied on a Cmd-R reload that
+// would otherwise trample the user's later picker edits — that means
+// the server can just return the preset on every /api/repo without
+// worrying about cross-tab races.
+const PRESET_SELECTION = buildPreset();
 
 // Per-boot token. Required on POST /api/shutdown so a stray browser tab on a
 // random localhost site can't kill the server via a forged request. Embedded
@@ -222,9 +230,15 @@ Examples:
   ireview -f HEAD --to HEAD~2            # narrow: last 3 commits only, no dirty
   ireview -f a1b2c3 -t HEAD              # one commit + history up to HEAD
 
-Useful for AI coding agents: "open iReview on what I just produced" →
-\`ireview --from HEAD~N\` covers the last N commits plus any in-flight
-edits the agent left behind.
+For AI coding agents:
+  # I just made N commits and want them reviewed (no dirty work):
+  ireview --from HEAD~{N-1} --to HEAD
+
+  # I made commits AND left in-flight edits, review it all:
+  ireview --from HEAD~{N-1}
+
+  # I only made staged/unstaged edits (no commit yet):
+  ireview --from unstaged
 
 Requires: git on your PATH (the server shells out to it).
 `);
@@ -296,10 +310,10 @@ app.get("/api/repo", async (_req, res) => {
       head,
       hasStaged: stagedNames.length > 0,
       hasUnstaged: unstagedNames.length > 0,
-      // Surfaced once per boot. Cleared after first read on the server so a
-      // frontend remount (HMR, route nav, browser back) can't re-apply it
-      // and trample the user's later picker edits.
-      presetSelection: consumePreset(),
+      // The CLI preset (`--from`/`--to`). Returned on every request; the
+      // frontend tracks "already applied" per browser session so a Cmd-R
+      // reload doesn't trample later picker edits.
+      presetSelection: PRESET_SELECTION,
     });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });

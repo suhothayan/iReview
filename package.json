@@ -1,6 +1,6 @@
 {
   "name": "ireview",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "Browser-based local diff review for AI-generated changes — review, comment, export Markdown back to your AI agent.",

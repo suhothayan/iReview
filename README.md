@@ -171,13 +171,14 @@ Yes — install via the PowerShell one-liner above.
 **Can I use it for non-AI code reviews?**
 Yes. iReview is just a local diff reviewer — pre-commit reviews, self-reviews, sanity checks all work fine.
 
-## What's new in 0.2.0
+## What's new in 0.3.0
 
-- **Multi-line range comments** now render once at the range anchor (was duplicating once per covered line). The accent indicator on `+` / `-` lines was also fixed — it had been hidden by the per-row gutter background.
-- **Toolbar logo links to the website.** Clicking *iReview* in the top-left opens https://suhothayan.github.io/iReview/ in a new tab.
-- **Windows installer.** One-line PowerShell script (`irm … | iex`) downloads the latest release and adds it to your user `PATH`.
-- **GitHub Pages site.** Public landing page at https://suhothayan.github.io/iReview/.
-- **`npm run dev` actually works.** The Vite proxy was pointed at the wrong port since v0.1.0.
+- **Picker now auto-applies.** Every click in the picker writes to the selection immediately — no more Apply / Reset buttons. The diff refetches in the background; closing the picker lands you on an already-loaded diff.
+- **Unified commit picker.** Unstaged, staged, and recent commits are one ordered list. Pick a contiguous range across all of it with calendar-style click rules: click outside the range to extend, click an endpoint to shrink, click inside to reset.
+- **CLI presets for AI agents.** New `--from` / `--to` flags (with `-f` / `-t` short forms) let an agent launch iReview pointed at exactly the range it just produced. Endpoints accept any git ref plus `staged` / `unstaged`. See "Pre-selecting a range on launch" above.
+- **Refresh button picks up disk changes.** Re-pulls `/api/repo` so a freshly staged file shows up in the picker without restarting the server.
+
+Older releases: see the [GitHub Releases page](https://github.com/suhothayan/iReview/releases).
 
 ## Security
 
