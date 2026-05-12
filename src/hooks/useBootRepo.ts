@@ -25,10 +25,12 @@ export function useBootRepo() {
   const [noRepo, setNoRepo] = useState<NoRepoInfo | null>(null);
   const [meta, setMeta] = useState<BootMeta>({ branch: null, head: null });
 
-  // Re-pull /api/repo and reconcile staged/unstaged flags into the current
-  // selection. Used by the Toolbar Refresh button so that staging a new file
-  // (or removing all unstaged work) is picked up without a full page reload.
-  // The user's picked commits are preserved.
+  // Re-pull /api/repo. Used by the Toolbar Refresh button so the picker
+  // subtitles (hasStaged/hasUnstaged) reflect what's on disk right now and
+  // so the meta line (branch + HEAD short-sha) is current. Does NOT touch
+  // the user's selection — the picker's always-tickable model means the
+  // user's tick state is the source of truth, not the server's view of
+  // what's currently dirty.
   const refreshRepo = useCallback(async () => {
     try {
       const info = await fetchRepo();
@@ -39,17 +41,6 @@ export function useBootRepo() {
         hasUnstaged: info.hasUnstaged,
       });
       setMeta({ branch: info.branch, head: info.head });
-      const current = useStore.getState().selection;
-      if (
-        current.staged !== info.hasStaged ||
-        current.unstaged !== info.hasUnstaged
-      ) {
-        setSelection({
-          shas: current.shas,
-          staged: info.hasStaged,
-          unstaged: info.hasUnstaged,
-        });
-      }
     } catch (err: unknown) {
       if (err instanceof NoRepoError) {
         setNoRepo(err.info);
@@ -58,7 +49,7 @@ export function useBootRepo() {
         setError(errorMessage(err));
       }
     }
-  }, [setRepo, setSelection, setError]);
+  }, [setRepo, setError]);
 
   useEffect(() => {
     let cancelled = false;

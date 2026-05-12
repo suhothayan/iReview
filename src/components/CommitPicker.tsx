@@ -29,13 +29,6 @@ export function CommitPicker() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Local draft so the user can adjust without triggering a diff fetch on every click.
-  const [draft, setDraft] = useState(selection);
-
-  useEffect(() => {
-    setDraft(selection);
-  }, [selection]);
-
   // Re-pull commits + repo info from the server. Updates uncommitted state
   // (hasStaged / hasUnstaged) and the commit list, so changes made on disk
   // since the picker mounted (new commits, fresh git add, etc.) show up.
@@ -71,13 +64,10 @@ export function CommitPicker() {
     };
   }, []);
 
-  const dirty =
-    draft.staged !== selection.staged ||
-    draft.unstaged !== selection.unstaged ||
-    draft.shas.join(",") !== selection.shas.join(",");
-
   // Unified range pick across the picker's full ordered list — unstaged
-  // (newest, top), staged, then commits[0..N].
+  // (newest, top), staged, then commits[0..N]. Auto-applies to the store
+  // selection on every click; the App-level diff effect fetches the new
+  // diff in the background while the picker stays open.
   //   - row 0 = unstaged, row 1 = staged, row 2..N+1 = commits[0..N-1]
   //   - Click outside the current range → extend the nearer side to clicked.
   //   - Click an endpoint of the range → shrink by one from that side.
@@ -85,31 +75,37 @@ export function CommitPicker() {
   //   - Click an interior row of a multi-row range → reset to clicked.
   function pickRow(rowIdx: number) {
     if (!commits) return;
-    setDraft((d) => {
-      const selected = collectSelectedRows(d, commits);
+    const selected = collectSelectedRows(selection, commits);
 
-      if (selected.length === 0) {
-        return rowRangeToDraft(rowIdx, rowIdx, commits, d);
-      }
+    if (selected.length === 0) {
+      setSelection(rowRangeToDraft(rowIdx, rowIdx, commits, selection));
+      return;
+    }
+    const minIdx = selected[0];
+    const maxIdx = selected[selected.length - 1];
 
-      const minIdx = selected[0];
-      const maxIdx = selected[selected.length - 1];
-
-      if (rowIdx < minIdx) return rowRangeToDraft(rowIdx, maxIdx, commits, d);
-      if (rowIdx > maxIdx) return rowRangeToDraft(minIdx, rowIdx, commits, d);
-
-      if (selected.length === 1) {
-        return { ...d, unstaged: false, staged: false, shas: [] };
-      }
-      if (rowIdx === minIdx) {
-        return rowRangeToDraft(minIdx + 1, maxIdx, commits, d);
-      }
-      if (rowIdx === maxIdx) {
-        return rowRangeToDraft(minIdx, maxIdx - 1, commits, d);
-      }
-      // Interior click on a multi-row range → reset to clicked (calendar).
-      return rowRangeToDraft(rowIdx, rowIdx, commits, d);
-    });
+    if (rowIdx < minIdx) {
+      setSelection(rowRangeToDraft(rowIdx, maxIdx, commits, selection));
+      return;
+    }
+    if (rowIdx > maxIdx) {
+      setSelection(rowRangeToDraft(minIdx, rowIdx, commits, selection));
+      return;
+    }
+    if (selected.length === 1) {
+      setSelection({ ...selection, unstaged: false, staged: false, shas: [] });
+      return;
+    }
+    if (rowIdx === minIdx) {
+      setSelection(rowRangeToDraft(minIdx + 1, maxIdx, commits, selection));
+      return;
+    }
+    if (rowIdx === maxIdx) {
+      setSelection(rowRangeToDraft(minIdx, maxIdx - 1, commits, selection));
+      return;
+    }
+    // Interior click on a multi-row range → reset to clicked (calendar).
+    setSelection(rowRangeToDraft(rowIdx, rowIdx, commits, selection));
   }
 
   // Build the unified row list: always show uncommitted entries first (even if empty,
@@ -117,21 +113,17 @@ export function CommitPicker() {
   const rows: Row[] = [{ kind: "unstaged" }, { kind: "staged" }];
   if (commits) for (const c of commits) rows.push({ kind: "commit", commit: c });
 
-  const apply = () => {
-    setSelection(draft);
-    setShowCommitPicker(false);
-  };
-  const reset = () => setDraft(selection);
+  const done = () => setShowCommitPicker(false);
 
   const selectedCount =
-    draft.shas.length + (draft.staged ? 1 : 0) + (draft.unstaged ? 1 : 0);
+    selection.shas.length +
+    (selection.staged ? 1 : 0) +
+    (selection.unstaged ? 1 : 0);
 
   const actions = (
     <Actions
-      dirty={dirty}
       refreshing={refreshing}
-      onApply={apply}
-      onReset={reset}
+      onDone={done}
       onRefresh={refresh}
     />
   );
@@ -160,7 +152,7 @@ export function CommitPicker() {
               return (
                 <PickerRow
                   key="unstaged"
-                  checked={draft.unstaged}
+                  checked={selection.unstaged}
                   onToggle={() => pickRow(i)}
                   badge={<Badge kind="unstage">UNSTAGED</Badge>}
                   title="Unstaged changes"
@@ -176,7 +168,7 @@ export function CommitPicker() {
               return (
                 <PickerRow
                   key="staged"
-                  checked={draft.staged}
+                  checked={selection.staged}
                   onToggle={() => pickRow(i)}
                   badge={<Badge kind="stage">STAGED</Badge>}
                   title="Staged changes"
@@ -192,7 +184,7 @@ export function CommitPicker() {
             return (
               <PickerRow
                 key={c.sha}
-                checked={draft.shas.includes(c.sha)}
+                checked={selection.shas.includes(c.sha)}
                 onToggle={() => pickRow(i)}
                 badge={
                   <code className="text-xs text-fg-muted font-mono">
@@ -221,16 +213,12 @@ export function CommitPicker() {
 }
 
 function Actions({
-  dirty,
   refreshing,
-  onApply,
-  onReset,
+  onDone,
   onRefresh,
 }: {
-  dirty: boolean;
   refreshing: boolean;
-  onApply: () => void;
-  onReset: () => void;
+  onDone: () => void;
   onRefresh: () => void;
 }) {
   return (
@@ -248,23 +236,11 @@ function Actions({
         <span>{refreshing ? "Refreshing…" : "Refresh"}</span>
       </button>
       <button
-        onClick={onReset}
-        disabled={!dirty}
-        className="text-xs px-2 py-1 rounded text-fg-muted hover:text-fg disabled:opacity-30"
-        title="Discard your unsaved changes and revert to the last applied selection"
-      >
-        Reset
-      </button>
-      <button
-        onClick={onApply}
+        onClick={onDone}
         className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium hover:opacity-90 shadow-sm"
-        title={
-          dirty
-            ? "Apply this selection and load the diff"
-            : "Close the picker (selection unchanged)"
-        }
+        title="Close the picker and go to the diff"
       >
-        {dirty ? "Apply" : "Done"}
+        Done
       </button>
     </>
   );
