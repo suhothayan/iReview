@@ -65,17 +65,28 @@ export function useBootRepo() {
         });
         setMeta({ branch: info.branch, head: info.head });
         useStore.getState().hydrateSession(info.repo);
-        // Default to "watch all uncommitted work" — staged + unstaged both
-        // ticked even on a clean repo. The picker rows are always tickable
-        // now, so this just removes the friction of having to pre-tick
-        // unstaged before editing files.
-        setSelection({
-          shas: [],
-          staged: true,
-          unstaged: true,
-        });
-        if (!info.hasStaged && !info.hasUnstaged) {
-          setShowCommitPicker(true);
+        // CLI preset (--commits / --staged / --unstaged) wins over the
+        // auto-default. Lets an agent launch with a specific set, e.g.
+        // `ireview --commits a1b2,c3d4 --staged`.
+        if (info.presetSelection) {
+          setSelection({
+            shas: info.presetSelection.shas,
+            staged: info.presetSelection.staged,
+            unstaged: info.presetSelection.unstaged,
+          });
+        } else {
+          // Default to "watch all uncommitted work" — staged + unstaged both
+          // ticked even on a clean repo. The picker rows are always tickable
+          // now, so this just removes the friction of having to pre-tick
+          // unstaged before editing files.
+          setSelection({
+            shas: [],
+            staged: true,
+            unstaged: true,
+          });
+          if (!info.hasStaged && !info.hasUnstaged) {
+            setShowCommitPicker(true);
+          }
         }
         if (!cancelled) setBootDone(true);
       } catch (err: unknown) {

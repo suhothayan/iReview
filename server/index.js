@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { execFile, spawn } from "node:child_process";
+import { execFile, execFileSync, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import fs from "node:fs";
@@ -15,15 +15,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const VERSION = pkg.version;
 
 // Parse CLI args + env. Positional arg is the repo path.
-//   ireview                 -> review cwd
-//   ireview /path/to/repo   -> review that repo
-//   ireview --port 4000     -> override port
-//   ireview --no-open       -> don't auto-open browser
-//   ireview --help          -> usage
+//   ireview                            -> review cwd
+//   ireview /path/to/repo              -> review that repo
+//   ireview --port 4000                -> override port
+//   ireview --no-open                  -> don't auto-open browser
+//   ireview --from HEAD                -> open the picker on the last commit
+//   ireview --from HEAD --to HEAD~2    -> open on a range (last 3 commits)
+//   ireview --from staged --to HEAD    -> staged + last commit (range)
+//   ireview --from unstaged            -> just my unstaged edits
+//   ireview --help                     -> usage
+//
+// --from and --to accept anything `git rev-parse` understands plus the
+// special names `unstaged` and `staged` (the two non-commit picker rows).
 const argv = process.argv.slice(2);
 let argRepo = null;
 let argPort = null;
 let argOpen = true;
+let argFrom = null;
+let argTo = null;
+const requireValue = (flag, next) => {
+  if (next === undefined || next.startsWith("-")) {
+    console.error(`${flag} requires a value (a git ref, "staged", or "unstaged").`);
+    process.exit(2);
+  }
+  return next;
+};
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === "--help" || a === "-h") {
@@ -36,6 +52,12 @@ for (let i = 0; i < argv.length; i++) {
   } else if (a === "--version" || a === "-v") {
     console.log(`iReview v${VERSION}`);
     process.exit(0);
+  } else if (a === "--from" || a === "-f") {
+    argFrom = requireValue("--from", argv[i + 1]);
+    i++;
+  } else if (a === "--to" || a === "-t") {
+    argTo = requireValue("--to", argv[i + 1]);
+    i++;
   } else if (!a.startsWith("-")) {
     argRepo = a;
   }
@@ -67,6 +89,94 @@ const REPO = REPO_EXPLICIT
   ? REPO_INITIAL
   : findGitRoot(REPO_INITIAL) || REPO_INITIAL;
 
+// Resolve a --from/--to endpoint to a unified picker row index.
+//   0           = unstaged
+//   1           = staged
+//   2..N+1      = commits[0..N-1] in `git log` topo order (matches what the
+//                 picker fetches)
+// Special-cases the two non-commit row names. Everything else goes through
+// `git rev-parse` and then a lookup in the recent-500 log window.
+function resolveEndpointToRow(value, log) {
+  if (value === "unstaged") return 0;
+  if (value === "staged") return 1;
+  let sha;
+  try {
+    sha = execFileSync(
+      "git",
+      ["-C", REPO, "rev-parse", "--verify", `${value}^{commit}`],
+      { encoding: "utf8" },
+    ).trim();
+  } catch {
+    console.error(
+      `Could not resolve ${JSON.stringify(value)} to a commit in ${REPO}. ` +
+        `Use a git ref, "staged", or "unstaged".`,
+    );
+    process.exit(2);
+  }
+  const idx = log.indexOf(sha);
+  if (idx < 0) {
+    console.error(
+      `${JSON.stringify(value)} resolved to ${sha} but that commit is older ` +
+        `than the most recent 500 in this repo. Can't place it on the picker's row axis.`,
+    );
+    process.exit(2);
+  }
+  return idx + 2;
+}
+
+// Build the preset selection from --from / --to. If either endpoint is
+// omitted it defaults to "unstaged" (row 0) — matching how every other
+// git tool treats a single ref ("X up to current state"). Order between
+// --from and --to doesn't matter — they're sorted into a contiguous range
+// and filled in.
+function buildPreset() {
+  if (argFrom === null && argTo === null) return null;
+  if (!fs.existsSync(path.join(REPO, ".git"))) {
+    // No repo, no log to resolve against. Let the regular boot path
+    // surface the "no_repo" error to the user.
+    return null;
+  }
+  let log;
+  try {
+    log = execFileSync(
+      "git",
+      ["-C", REPO, "log", "--pretty=%H", "--max-count=500"],
+      { encoding: "utf8" },
+    )
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+  // A missing endpoint defaults to "unstaged" (row 0). `ireview --from HEAD~3`
+  // means "everything since HEAD~3 including in-flight work" — matches git
+  // convention for a single ref + iReview's "unified list" mental model.
+  const fromRow = argFrom === null ? 0 : resolveEndpointToRow(argFrom, log);
+  const toRow = argTo === null ? 0 : resolveEndpointToRow(argTo, log);
+  const lo = Math.min(fromRow, toRow);
+  const hi = Math.max(fromRow, toRow);
+  let unstaged = false;
+  let staged = false;
+  const shas = [];
+  for (let i = lo; i <= hi; i++) {
+    if (i === 0) unstaged = true;
+    else if (i === 1) staged = true;
+    else if (log[i - 2]) shas.push(log[i - 2]);
+  }
+  return { shas, staged, unstaged };
+}
+
+// Surfaced to the frontend so it skips the auto-default
+// {staged: true, unstaged: true} and opens with exactly what the caller
+// asked for. Consumed once — see `consumePreset()` below.
+let PRESET_SELECTION = buildPreset();
+function consumePreset() {
+  const out = PRESET_SELECTION;
+  PRESET_SELECTION = null;
+  return out;
+}
+
 // Per-boot token. Required on POST /api/shutdown so a stray browser tab on a
 // random localhost site can't kill the server via a forged request. Embedded
 // into the served HTML so the legitimate frontend can read it.
@@ -76,7 +186,7 @@ function printHelp() {
   console.log(`iReview — browser-based local diff review
 
 Usage:
-  ireview [REPO_PATH] [--port N] [--no-open]
+  ireview [REPO_PATH] [--port N] [--no-open] [-f FROM] [-t TO]
 
 Arguments:
   REPO_PATH       Path to a git repository (default: current directory)
@@ -84,8 +194,37 @@ Arguments:
 Options:
   -p, --port N    Port to listen on (default: 3737)
       --no-open   Don't auto-open the browser
+  -f, --from      One endpoint of the picker range. Accepts:
+                    "unstaged"   — your working-tree edits
+                    "staged"     — your index
+                    any git ref  — HEAD, HEAD~N, branch names, SHAs
+  -t, --to        The other endpoint (optional). Order between --from and
+                  --to doesn't matter; the picker fills everything in
+                  between. A missing endpoint defaults to "unstaged".
   -v, --version   Show version
   -h, --help      Show this help
+
+The picker's rows form a single ordered list — unstaged → staged →
+commits — and --from / --to pick a contiguous range across all of it,
+matching the picker UI. A single endpoint means "from there up to
+unstaged" — same as \`git log REF\` includes everything since REF.
+
+Heads up: HEAD~N follows git's first-parent convention, but the picker
+shows topo-order log. So --from HEAD~3 --to HEAD may fill in *more*
+than four commits if merges sit in between — same as if you ticked the
+same two rows in the picker.
+
+Examples:
+  ireview                                # default: all my uncommitted work
+  ireview -f HEAD~3                      # everything since HEAD~3 + in-flight
+  ireview -f HEAD                        # last commit + my dirty edits
+  ireview -f staged                      # staged + unstaged (no commits)
+  ireview -f HEAD --to HEAD~2            # narrow: last 3 commits only, no dirty
+  ireview -f a1b2c3 -t HEAD              # one commit + history up to HEAD
+
+Useful for AI coding agents: "open iReview on what I just produced" →
+\`ireview --from HEAD~N\` covers the last N commits plus any in-flight
+edits the agent left behind.
 
 Requires: git on your PATH (the server shells out to it).
 `);
@@ -157,6 +296,10 @@ app.get("/api/repo", async (_req, res) => {
       head,
       hasStaged: stagedNames.length > 0,
       hasUnstaged: unstagedNames.length > 0,
+      // Surfaced once per boot. Cleared after first read on the server so a
+      // frontend remount (HMR, route nav, browser back) can't re-apply it
+      // and trample the user's later picker edits.
+      presetSelection: consumePreset(),
     });
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
