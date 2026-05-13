@@ -4,6 +4,15 @@ export interface RepoInfo {
   head: string;
   hasStaged: boolean;
   hasUnstaged: boolean;
+  // When set, the server was started with CLI flags asking for an explicit
+  // initial selection (e.g. `ireview --commits a,b,c --staged`). Applied on
+  // the first /api/repo response only — subsequent refreshes ignore it so
+  // the user's later picker edits aren't trampled.
+  presetSelection?: {
+    shas: string[];
+    staged: boolean;
+    unstaged: boolean;
+  } | null;
 }
 
 export interface NoRepoInfo {

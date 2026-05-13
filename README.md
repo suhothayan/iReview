@@ -88,7 +88,7 @@ Vite dev server on `:5173`, Express API on `:3737`.
 ## Command-line options
 
 ```
-ireview [REPO_PATH] [--port N] [--no-open]
+ireview [REPO_PATH] [--port N] [--no-open] [-f FROM] [-t TO]
 
 Arguments:
   REPO_PATH       Path to a git repository (default: walks up from cwd)
@@ -96,9 +96,41 @@ Arguments:
 Options:
   -p, --port N    Port to listen on (default: 3737)
       --no-open   Don't auto-open the browser
+  -f, --from      One endpoint of the picker range (see below)
+  -t, --to        The other endpoint (optional; defaults to "unstaged")
   -v, --version   Show version
   -h, --help      Show this help
 ```
+
+### Pre-selecting a range on launch
+
+The picker's rows form a single ordered list — `unstaged` → `staged` →
+`commits` — and `--from` / `--to` pick a contiguous range across it. Most
+useful for AI coding agents that want to say "open iReview on what I just
+produced".
+
+Either endpoint accepts `unstaged`, `staged`, or anything `git rev-parse`
+understands (`HEAD`, `HEAD~N`, branch names, full or short SHAs). A
+missing endpoint defaults to `unstaged` — so `--from HEAD~3` means
+"everything since HEAD~3 including in-flight work", matching how every
+other git command treats a single ref.
+
+```bash
+ireview                                # default: all uncommitted work
+ireview -f HEAD~3                      # last 3 commits + my dirty edits
+ireview -f HEAD                        # last commit + my dirty edits
+ireview -f staged                      # staged + unstaged (no commits)
+ireview -f HEAD -t HEAD~2              # narrow: just commits, no dirty
+ireview -f a1b2c3 -t HEAD              # one specific commit + everything up to HEAD
+
+# Agent-style: review the SHAs you just produced
+ireview --from "$(git log -3 --format=%H | tail -1)"
+```
+
+`HEAD~N` follows git's first-parent convention but the picker shows
+topo-order log, so `--from HEAD~3 --to HEAD` may fill in more than four
+commits if merges sit in between — same as what you'd see if you ticked
+those two rows in the picker UI.
 
 ## Output format
 
