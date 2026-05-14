@@ -11,7 +11,7 @@
   --bg-accent-tint: 9 105 218;
   --bg-accent-tint-alpha: 0.06;
   --selected: 9 105 218;             /* base for "selected/active" tokens */
-  --selected-alpha: 0.10;
+  --selected-alpha: 0.18;
   --fg: 31 35 40;
   --fg-muted: 87 96 106;
   --fg-dim: 140 149 159;
@@ -39,7 +39,7 @@
   --bg-accent-tint: 88 166 255;
   --bg-accent-tint-alpha: 0.08;
   --selected: 88 166 255;
-  --selected-alpha: 0.14;
+  --selected-alpha: 0.22;
   --fg: 230 237 243;
   --fg-muted: 173 181 189;
   --fg-dim: 125 133 144;

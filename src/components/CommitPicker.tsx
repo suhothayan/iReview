@@ -113,7 +113,7 @@ export function CommitPicker() {
   const rows: Row[] = [{ kind: "unstaged" }, { kind: "staged" }];
   if (commits) for (const c of commits) rows.push({ kind: "commit", commit: c });
 
-  const done = () => setShowCommitPicker(false);
+  const close = () => setShowCommitPicker(false);
 
   const selectedCount =
     selection.shas.length +
@@ -123,7 +123,7 @@ export function CommitPicker() {
   const actions = (
     <Actions
       refreshing={refreshing}
-      onDone={done}
+      onClose={close}
       onRefresh={refresh}
     />
   );
@@ -198,11 +198,11 @@ export function CommitPicker() {
           })}
       </div>
 
-      {/* Bottom action bar — mirrors the top so the user can apply without scrolling back up */}
+      {/* Bottom action bar — mirrors the top so the user can close without scrolling back up. */}
       <div className="stage-picker-bar px-4 py-2.5 flex items-center gap-3 border-t border-bg-line">
-        <div className="text-xs text-fg-muted">
+        <div className="text-xs text-fg-muted" aria-live="polite">
           {selectedCount === 0
-            ? "Nothing selected — pick at least one entry above."
+            ? "Nothing selected — pick at least one row above."
             : `${selectedCount} selected`}
         </div>
         <div className="flex-1" />
@@ -214,11 +214,11 @@ export function CommitPicker() {
 
 function Actions({
   refreshing,
-  onDone,
+  onClose,
   onRefresh,
 }: {
   refreshing: boolean;
-  onDone: () => void;
+  onClose: () => void;
   onRefresh: () => void;
 }) {
   return (
@@ -236,11 +236,11 @@ function Actions({
         <span>{refreshing ? "Refreshing…" : "Refresh"}</span>
       </button>
       <button
-        onClick={onDone}
+        onClick={onClose}
         className="text-xs px-3 py-1 rounded bg-accent text-accent-on font-medium hover:opacity-90 shadow-sm"
         title="Close the picker and go to the diff"
       >
-        Done
+        Close
       </button>
     </>
   );
@@ -268,7 +268,7 @@ function PickerRow({
       {checked && (
         <span
           aria-hidden
-          className="absolute left-0 top-0 bottom-0 w-[2px] bg-accent"
+          className="absolute left-0 top-0 bottom-0 w-[3px] bg-accent"
         />
       )}
       <input

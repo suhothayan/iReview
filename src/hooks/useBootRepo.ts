@@ -18,7 +18,6 @@ export interface BootMeta {
 export function useBootRepo() {
   const setRepo = useStore((s) => s.setRepo);
   const setSelection = useStore((s) => s.setSelection);
-  const setShowCommitPicker = useStore((s) => s.setShowCommitPicker);
   const setError = useStore((s) => s.setError);
 
   const [bootDone, setBootDone] = useState(false);
@@ -65,28 +64,42 @@ export function useBootRepo() {
         });
         setMeta({ branch: info.branch, head: info.head });
         useStore.getState().hydrateSession(info.repo);
-        // CLI preset (--commits / --staged / --unstaged) wins over the
-        // auto-default. Lets an agent launch with a specific set, e.g.
-        // `ireview --commits a1b2,c3d4 --staged`.
-        if (info.presetSelection) {
+
+        // CLI preset (`ireview --from REF --to REF`) wins over the
+        // auto-default. Apply only once per tab/session — sessionStorage
+        // marker means a Cmd-R reload doesn't trample edits the user made
+        // in the picker since launch. New tab = new session = fresh
+        // preset, so no cross-tab race even though the server returns
+        // `presetSelection` on every /api/repo call.
+        const presetKey = `ireview:preset-applied:${info.repo}`;
+        const presetAlreadyApplied = sessionStorage.getItem(presetKey) === "1";
+        if (info.presetSelection && !presetAlreadyApplied) {
           setSelection({
             shas: info.presetSelection.shas,
             staged: info.presetSelection.staged,
             unstaged: info.presetSelection.unstaged,
           });
+          try {
+            sessionStorage.setItem(presetKey, "1");
+          } catch {
+            // Private mode / quota — ignore; worst case the preset reapplies
+            // on a reload, which is still better than dropping it.
+          }
         } else {
           // Default to "watch all uncommitted work" — staged + unstaged both
           // ticked even on a clean repo. The picker rows are always tickable
           // now, so this just removes the friction of having to pre-tick
-          // unstaged before editing files.
+          // unstaged before editing files. We no longer auto-open the picker
+          // on a clean repo — that flow used to loop (picker opens → Done
+          // closes → "No changes" screen → "Pick changes" reopens the same
+          // picker). The "No changes to review" screen is a fine first
+          // impression; the user can edit files (Refresh shows them) or
+          // click Pick changes if they want to review commits.
           setSelection({
             shas: [],
             staged: true,
             unstaged: true,
           });
-          if (!info.hasStaged && !info.hasUnstaged) {
-            setShowCommitPicker(true);
-          }
         }
         if (!cancelled) setBootDone(true);
       } catch (err: unknown) {
