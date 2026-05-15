@@ -304,12 +304,33 @@ app.get("/api/repo", async (_req, res) => {
     const head = (await git(["rev-parse", "HEAD"])).trim().slice(0, 12);
     const stagedNames = (await git(["diff", "--cached", "--name-only"])).trim();
     const unstagedNames = (await git(["diff", "--name-only"])).trim();
+    // Untracked (but not .gitignore'd) files count as "dirty unstaged work"
+    // for the picker's purposes — they'll appear in the diff as new-file
+    // additions when Unstaged is in the selection. The list is also surfaced
+    // so the frontend can render them with a "U" badge instead of "A"
+    // (added) — they're not in any commit, just sitting in the working tree.
+    // `-z` is required: paths can legitimately contain newlines on Unix.
+    const untrackedRaw = await git([
+      "ls-files",
+      "--others",
+      "--exclude-standard",
+      "-z",
+    ]);
+    const untrackedFiles = untrackedRaw.split("\0").filter(Boolean);
+    const hasModified = unstagedNames.length > 0;
     res.json({
       repo: REPO,
       branch,
       head,
       hasStaged: stagedNames.length > 0,
-      hasUnstaged: unstagedNames.length > 0,
+      // `hasUnstaged` reflects "any dirty work in the working tree" — folds
+      // tracked-modified and untracked together for the picker's binary state.
+      // `hasModified` is the tracked-only slice; the picker uses it to write
+      // a more honest subtitle ("working tree vs index" only when truly the
+      // case, plus a "(+N untracked)" rider when untracked also exists).
+      hasUnstaged: hasModified || untrackedFiles.length > 0,
+      hasModified,
+      untrackedFiles,
       // The CLI preset (`--from`/`--to`). Returned on every request; the
       // frontend tracks "already applied" per browser session so a Cmd-R
       // reload doesn't trample later picker edits.
@@ -390,11 +411,156 @@ app.get("/api/diff", async (req, res) => {
       }
     }
     const diff = await git(args);
-    res.type("text/plain").send(diff);
+    // When unstaged is on, also append synthesized diffs for untracked
+    // (but-not-ignored) files. `git diff` doesn't surface these since git
+    // doesn't track them yet — we shell out per file to `git diff --no-index`
+    // so the output format is byte-identical to what parseDiff already
+    // handles for new-file diffs.
+    let untrackedDiff = "";
+    if (includeUnstaged) {
+      untrackedDiff = await untrackedFilesDiff();
+    }
+    res.type("text/plain").send(diff + untrackedDiff);
   } catch (err) {
     res.status(500).json({ error: String(err.message || err) });
   }
 });
+
+// How many untracked files to actually synthesize diffs for. Past this we
+// stop inlining content and append a "...and N more" stub so a forgotten
+// .gitignore can't melt the box with thousands of concurrent git invocations
+// or thousands of MB of "+" lines streamed through V8.
+const UNTRACKED_INLINE_LIMIT = 50;
+// Per-file size cap. Bigger files get a stub instead of streamed content.
+const UNTRACKED_INLINE_MAX_BYTES = 1024 * 1024;
+// How many `git diff --no-index` invocations to keep in flight at once.
+const UNTRACKED_CONCURRENCY = 8;
+
+function formatBytes(n) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  if (n < 1024 * 1024 * 1024) return `${(n / 1024 / 1024).toFixed(1)} MB`;
+  return `${(n / 1024 / 1024 / 1024).toFixed(1)} GB`;
+}
+
+// Build a minimal one-line unified diff for an untracked file the server
+// won't (or shouldn't) read — symlinks, binaries, oversized files, the
+// "and N more" overflow placeholder. parseDiff sees a normal new-file entry
+// with a single line of context-as-added explaining why.
+function stubUntrackedDiff(relPath, note) {
+  return (
+    `diff --git a/${relPath} b/${relPath}\n` +
+    `new file mode 100644\n` +
+    `index 0000000..0000000\n` +
+    `--- /dev/null\n` +
+    `+++ b/${relPath}\n` +
+    `@@ -0,0 +1 @@\n` +
+    `+${note}\n`
+  );
+}
+
+async function pool(items, limit, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i]);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
+async function synthesizeUntrackedDiff(relPath) {
+  const absPath = path.join(REPO, relPath);
+  let st;
+  try {
+    // lstat (not stat) so we *don't* follow symlinks here — a malicious or
+    // accidental symlink to /etc/passwd otherwise gets its target dumped
+    // into the diff response.
+    st = await fs.promises.lstat(absPath);
+  } catch {
+    return ""; // file disappeared (TOCTOU) — skip cleanly.
+  }
+  if (st.isSymbolicLink()) {
+    let target = "(unreadable)";
+    try {
+      target = await fs.promises.readlink(absPath);
+    } catch {
+      // ignore — we never read the target's content anyway.
+    }
+    return stubUntrackedDiff(relPath, `(symlink → ${target}, not previewed)`);
+  }
+  if (!st.isFile()) {
+    return stubUntrackedDiff(relPath, "(not a regular file, not previewed)");
+  }
+  if (st.size === 0) {
+    return stubUntrackedDiff(relPath, "(empty file)");
+  }
+  if (st.size > UNTRACKED_INLINE_MAX_BYTES) {
+    return stubUntrackedDiff(
+      relPath,
+      `(file too large to preview: ${formatBytes(st.size)})`,
+    );
+  }
+  // Use `git diff --no-index` for real textual diff. It exits 1 when there
+  // IS a diff (which we expect every time), so unwrap that case from the
+  // execFile rejection. Anything else — ENOENT (TOCTOU), signal kill — we
+  // surface as a stub rather than silently dropping.
+  let stdout = "";
+  try {
+    const r = await execFileP(
+      "git",
+      ["-C", REPO, "diff", "--no-color", "--no-index", "--", "/dev/null", relPath],
+      { maxBuffer: 16 * 1024 * 1024 },
+    ).catch((err) => {
+      if (err.code === 1 && typeof err.stdout === "string") {
+        return { stdout: err.stdout };
+      }
+      throw err;
+    });
+    stdout = r.stdout || "";
+  } catch {
+    return stubUntrackedDiff(relPath, "(could not read file)");
+  }
+  // Binary detection: git emits a single line, no patch body.
+  if (/^Binary files .* differ$/m.test(stdout)) {
+    return stubUntrackedDiff(
+      relPath,
+      `(binary file, ${formatBytes(st.size)})`,
+    );
+  }
+  return stdout;
+}
+
+async function untrackedFilesDiff() {
+  let raw;
+  try {
+    raw = await git(["ls-files", "--others", "--exclude-standard", "-z"]);
+  } catch {
+    return "";
+  }
+  const paths = raw.split("\0").filter(Boolean);
+  if (paths.length === 0) return "";
+
+  // Cap how many we inline. A repo with a forgotten .gitignore (a fresh
+  // `node_modules`, build output, etc.) can have thousands of untracked
+  // files — diffing them all takes forever and bloats the response. Show
+  // the first N and a "and M more" stub for the rest.
+  const inlinePaths = paths.slice(0, UNTRACKED_INLINE_LIMIT);
+  const fragments = await pool(inlinePaths, UNTRACKED_CONCURRENCY, synthesizeUntrackedDiff);
+  let out = fragments.join("");
+  if (paths.length > UNTRACKED_INLINE_LIMIT) {
+    const extras = paths.length - UNTRACKED_INLINE_LIMIT;
+    out += stubUntrackedDiff(
+      ".ireview-untracked-overflow",
+      `(${extras} more untracked files not previewed — consider adding a .gitignore)`,
+    );
+  }
+  return out;
+}
 
 // Returns "<sha>^" when the commit has a parent, otherwise the canonical
 // empty-tree SHA-1. Diff'ing a root commit against the empty tree shows

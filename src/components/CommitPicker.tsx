@@ -20,6 +20,8 @@ export function CommitPicker() {
     setSelection,
     hasStaged,
     hasUnstaged,
+    hasModified,
+    untrackedFiles,
     setShowCommitPicker,
     setRepo,
     repoPath,
@@ -41,6 +43,8 @@ export function CommitPicker() {
         repoPath: info.repo,
         hasStaged: info.hasStaged,
         hasUnstaged: info.hasUnstaged,
+        hasModified: info.hasModified ?? info.hasUnstaged,
+        untrackedFiles: info.untrackedFiles ?? [],
       });
       setCommits(fresh);
     } catch (e: unknown) {
@@ -156,11 +160,11 @@ export function CommitPicker() {
                   onToggle={() => pickRow(i)}
                   badge={<Badge kind="unstage">UNSTAGED</Badge>}
                   title="Unstaged changes"
-                  subtitle={
-                    hasUnstaged
-                      ? "working tree vs index"
-                      : "no unstaged work yet — future edits will show up here"
-                  }
+                  subtitle={unstagedSubtitle(
+                    hasUnstaged,
+                    hasModified,
+                    untrackedFiles.length,
+                  )}
                 />
               );
             }
@@ -291,6 +295,27 @@ function PickerRow({
       </div>
     </label>
   );
+}
+
+// Subtitle for the Unstaged picker row. Speaks plainly about what's there
+// so the row doesn't say "working tree vs index" when in fact the only
+// thing dirty is an untracked file.
+function unstagedSubtitle(
+  hasUnstaged: boolean,
+  hasModified: boolean,
+  untrackedCount: number,
+): string {
+  if (!hasUnstaged) {
+    return "nothing yet — future edits show up here";
+  }
+  const parts: string[] = [];
+  if (hasModified) parts.push("working tree vs index");
+  if (untrackedCount > 0) {
+    parts.push(
+      `${untrackedCount} untracked file${untrackedCount === 1 ? "" : "s"}`,
+    );
+  }
+  return parts.join(" · ");
 }
 
 // Map the current draft selection onto its row indices in the unified picker
