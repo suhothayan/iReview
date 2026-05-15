@@ -3,7 +3,19 @@ export interface RepoInfo {
   branch: string;
   head: string;
   hasStaged: boolean;
+  // True if anything dirty exists in the working tree — modified-tracked
+  // OR untracked. The picker's binary "is the Unstaged row meaningful?"
+  // signal.
   hasUnstaged: boolean;
+  // The tracked-only slice of `hasUnstaged`. Lets the picker render an
+  // honest subtitle: "working tree vs index" only when truly the case,
+  // versus "N untracked" when only the untracked bucket has content.
+  hasModified?: boolean;
+  // Paths of files git knows about but that aren't tracked yet (output of
+  // `git ls-files --others --exclude-standard`). Used by the file tree to
+  // render them with a "U" badge instead of the "A" added badge — they're
+  // not in any commit, just sitting in the working directory.
+  untrackedFiles?: string[];
   // When set, the server was started with CLI flags asking for an explicit
   // initial selection (e.g. `ireview --commits a,b,c --staged`). Applied on
   // the first /api/repo response only — subsequent refreshes ignore it so

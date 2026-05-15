@@ -128,7 +128,12 @@ export function FileList({ onSelect }: FileListProps = {}) {
     reviewed,
     toggleReviewed,
     setFilesReviewed,
+    untrackedFiles,
   } = useStore();
+  const untrackedSet = useMemo(
+    () => new Set(untrackedFiles),
+    [untrackedFiles],
+  );
   const handleSelect = onSelect ?? setActiveFile;
 
   const tree = useMemo(() => buildTree(files), [files]);
@@ -198,6 +203,7 @@ export function FileList({ onSelect }: FileListProps = {}) {
             reviewed={reviewed}
             toggleReviewed={toggleReviewed}
             setFilesReviewed={setFilesReviewed}
+            untrackedSet={untrackedSet}
           />
         ))}
       </ul>
@@ -216,6 +222,7 @@ interface RowProps {
   reviewed: Record<string, boolean>;
   toggleReviewed: (path: string) => void;
   setFilesReviewed: (paths: string[], reviewed: boolean) => void;
+  untrackedSet: Set<string>;
 }
 
 function TreeRow(p: RowProps) {
@@ -280,6 +287,7 @@ function TreeRow(p: RowProps) {
               reviewed={p.reviewed}
               toggleReviewed={p.toggleReviewed}
               setFilesReviewed={p.setFilesReviewed}
+              untrackedSet={p.untrackedSet}
             />
           ))}
       </>
@@ -291,16 +299,44 @@ function TreeRow(p: RowProps) {
   const isActive = p.activeFile === f.path;
   const isReviewed = !!p.reviewed[f.path];
   const count = p.counts[f.path] ?? 0;
+  const isUntracked = p.untrackedSet.has(f.path);
   const statusGlyph = (() => {
+    // Untracked files come through the diff as `new file mode 100644` (so
+    // they'd otherwise show "A" for added) — but they're not in any commit
+    // or in the index, so we distinguish with "?" — mirrors git's porcelain
+    // `??` code, trimmed to one char to keep the badge column aligned.
+    // Avoiding "U" because git uses it for unmerged conflict states.
+    if (isUntracked) {
+      return (
+        <span
+          className="text-blue-600 dark:text-blue-400"
+          title="Untracked — not yet added to git"
+        >
+          ?
+        </span>
+      );
+    }
     switch (f.status) {
       case "added":
-        return <span className="text-green-600 dark:text-green-400">A</span>;
+        return (
+          <span className="text-green-600 dark:text-green-400" title="Added">
+            A
+          </span>
+        );
       case "deleted":
-        return <span className="text-red-600 dark:text-red-400">D</span>;
+        return (
+          <span className="text-red-600 dark:text-red-400" title="Deleted">
+            D
+          </span>
+        );
       case "renamed":
-        return <span className="text-yellow-600 dark:text-yellow-400">R</span>;
+        return (
+          <span className="text-yellow-600 dark:text-yellow-400" title="Renamed">
+            R
+          </span>
+        );
       default:
-        return <span className="text-fg-muted">M</span>;
+        return <span className="text-fg-muted" title="Modified">M</span>;
     }
   })();
 

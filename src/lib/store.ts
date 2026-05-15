@@ -25,6 +25,12 @@ interface State {
   selection: Selection;
   hasStaged: boolean;
   hasUnstaged: boolean;
+  // Tracked-modified-only — `hasUnstaged` minus the untracked contribution.
+  // Picker uses it to write an honest subtitle for the Unstaged row.
+  hasModified: boolean;
+  // Working-tree paths that git doesn't yet track. Used by the file list to
+  // render them with a "U" badge rather than the "A" added badge.
+  untrackedFiles: string[];
   files: DiffFile[];
   loading: boolean;
   error: string | null;
@@ -44,6 +50,8 @@ interface State {
     repoPath: string;
     hasStaged: boolean;
     hasUnstaged: boolean;
+    hasModified: boolean;
+    untrackedFiles: string[];
   }) => void;
   setFiles: (files: DiffFile[]) => void;
   setLoading: (v: boolean) => void;
@@ -115,6 +123,8 @@ export const useStore = create<State>()((set, get) => ({
   selection: { shas: [], staged: false, unstaged: false },
   hasStaged: false,
   hasUnstaged: false,
+  hasModified: false,
+  untrackedFiles: [],
   files: [],
   loading: false,
   error: null,
@@ -125,8 +135,8 @@ export const useStore = create<State>()((set, get) => ({
   comments: [],
   reviewed: {},
 
-  setRepo: ({ repoPath, hasStaged, hasUnstaged }) =>
-    set({ repoPath, hasStaged, hasUnstaged }),
+  setRepo: ({ repoPath, hasStaged, hasUnstaged, hasModified, untrackedFiles }) =>
+    set({ repoPath, hasStaged, hasUnstaged, hasModified, untrackedFiles }),
   setFiles: (files) =>
     set({
       files,

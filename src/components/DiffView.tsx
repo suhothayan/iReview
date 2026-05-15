@@ -29,8 +29,21 @@ type FormState =
   | { kind: "edit"; commentId: string };
 
 export function DiffView({ file, embedded = false }: Props) {
-  const { comments, addComment, updateComment, deleteComment, reviewed, toggleReviewed } =
-    useStore();
+  const {
+    comments,
+    addComment,
+    updateComment,
+    deleteComment,
+    reviewed,
+    toggleReviewed,
+    untrackedFiles,
+  } = useStore();
+  // Untracked files come in as `new file mode 100644` and would otherwise
+  // surface as "added" in the file header — same dishonesty the sidebar's
+  // `?` badge fixes. Override the label here too so the right pane matches.
+  const displayStatus = untrackedFiles.includes(file.path)
+    ? "untracked"
+    : file.status;
   const [form, setForm] = useState<FormState>({ kind: "none" });
 
   const fileComments = useMemo(
@@ -78,7 +91,7 @@ export function DiffView({ file, embedded = false }: Props) {
         <h2 className="font-mono text-xs sm:text-sm text-fg flex-1 truncate" title={file.path}>
           {file.path}
         </h2>
-        <span className="hidden sm:inline text-xs text-fg-muted">{file.status}</span>
+        <span className="hidden sm:inline text-xs text-fg-muted">{displayStatus}</span>
         <span
           className="hidden lg:inline text-[11px] text-fg-dim italic"
           title="Click any line to comment on it. Hold Shift and click another line to extend the range."

@@ -38,6 +38,8 @@ export function useBootRepo() {
         repoPath: info.repo,
         hasStaged: info.hasStaged,
         hasUnstaged: info.hasUnstaged,
+        hasModified: info.hasModified ?? info.hasUnstaged,
+        untrackedFiles: info.untrackedFiles ?? [],
       });
       setMeta({ branch: info.branch, head: info.head });
     } catch (err: unknown) {
@@ -61,6 +63,8 @@ export function useBootRepo() {
           repoPath: info.repo,
           hasStaged: info.hasStaged,
           hasUnstaged: info.hasUnstaged,
+          hasModified: info.hasModified ?? info.hasUnstaged,
+          untrackedFiles: info.untrackedFiles ?? [],
         });
         setMeta({ branch: info.branch, head: info.head });
         useStore.getState().hydrateSession(info.repo);
