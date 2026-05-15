@@ -22,6 +22,23 @@ type FileNode = {
 };
 type TreeNode = DirNode | FileNode;
 
+// Sort the raw diff file list into the same order the sidebar tree renders:
+// dirs first, then files; alphabetical within each level. Exported so the
+// right-pane scroll view and Prev/Next nav can show files in the same order
+// the sidebar does — otherwise clicking through the file list jumps around.
+export function sortFilesForDisplay(files: DiffFile[]): DiffFile[] {
+  const tree = buildTree(files);
+  const out: DiffFile[] = [];
+  const walk = (node: DirNode) => {
+    for (const c of node.children) {
+      if (c.kind === "dir") walk(c);
+      else out.push(c.file);
+    }
+  };
+  walk(tree);
+  return out;
+}
+
 function buildTree(files: DiffFile[]): DirNode {
   const root: DirNode = { kind: "dir", name: "", path: "", children: [] };
   for (const f of files) {

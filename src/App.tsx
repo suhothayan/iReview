@@ -13,6 +13,7 @@ import { NavBar } from "./components/NavBar";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { StoppedScreen } from "./components/StoppedScreen";
 import { ResponsiveFileList } from "./components/ResponsiveFileList";
+import { sortFilesForDisplay } from "./components/FileList";
 import { Check, Plus, X } from "lucide-react";
 
 export default function App() {
@@ -39,7 +40,7 @@ export default function App() {
     setError(null);
     try {
       const text = await fetchDiff(selection);
-      setFiles(parseDiff(text));
+      setFiles(sortFilesForDisplay(parseDiff(text)));
     } catch (err: unknown) {
       setError(errorMessage(err));
     } finally {
@@ -57,7 +58,7 @@ export default function App() {
     try {
       await refreshRepo();
       const text = await fetchDiff(useStore.getState().selection);
-      setFiles(parseDiff(text));
+      setFiles(sortFilesForDisplay(parseDiff(text)));
     } catch (err: unknown) {
       setError(errorMessage(err));
     } finally {
